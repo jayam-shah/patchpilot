@@ -1,6 +1,8 @@
 import httpx
 from database import get_session, Patch
 from config import OLLAMA_HOST
+from logger import get_logger
+logger = get_logger(__name__)
 
 OLLAMA_MODEL = "codellama:7b"
 OLLAMA_URL = f"{OLLAMA_HOST}/api/generate"
@@ -70,7 +72,7 @@ def clean_code_output(raw: str) -> str:
     return "\n".join(code_lines).strip()
 
 async def call_ollama(prompt: str) -> str:   # ← column 0, no indentation
-    print(f"[Patcher] Sending prompt to Ollama ({OLLAMA_MODEL})...")
+    logger.info(f"Sending prompt to Ollama ({OLLAMA_MODEL})")
     async with httpx.AsyncClient(timeout=300.0) as client:
         response = await client.post(
             OLLAMA_URL,
@@ -104,24 +106,24 @@ def save_patched_code(patch_id: int, patched_code: str) -> Patch:
         session.close()
 
 async def generate_patch(patch: Patch, changelog_content: str) -> Patch | None:
-    print(f"[Patcher] Processing {patch.file_path}")
+    logger.info(f"Processing {patch.file_path}")
     try:
         prompt = build_prompt(patch.original_code, changelog_content, patch.file_path)
         patched_code = await call_ollama(prompt)
         updated_patch = save_patched_code(patch.id, patched_code)
-        print(f"[Patcher] Fix saved for patch id={patch.id}")
+        logger.info(f"Fix saved for patch id={patch.id}")
         return updated_patch
     except Exception as e:
-        print(f"[Patcher] Failed on patch id={patch.id}: {type(e).__name__}: {e}")
+        logger.error(f"Failed on patch id={patch.id}: {type(e).__name__}: {e}")
         return None
 
 
 async def run_patcher(patches: list, changelog_content: str) -> list:
-    print(f"[Patcher] Starting. {len(patches)} file(s) to patch.")
+    logger.info(f"Starting — {len(patches)} file(s) to patch")
     results = []
     for patch in patches:
         result = await generate_patch(patch, changelog_content)
         if result:
             results.append(result)
-    print(f"[Patcher] Done. {len(results)}/{len(patches)} file(s) patched.")
+    logger.info(f"Done — {len(results)}/{len(patches)} file(s) patched")
     return results

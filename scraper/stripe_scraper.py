@@ -1,5 +1,7 @@
 import httpx
 import hashlib
+from logger import get_logger
+logger = get_logger(__name__)
 from bs4 import BeautifulSoup
 from datetime import datetime
 from database import get_session, ChangelogSnapshot
@@ -57,7 +59,7 @@ def save_snapshot(api_name: str, version: str, content_hash: str, raw_content: s
         session.close()
 
 async def check_stripe_changelog() -> dict | None:
-    print(f"[Scraper] Checking Stripe changelog at {datetime.utcnow()}")
+    logger.info(f"Checking Stripe changelog at {datetime.utcnow()}")
 
     html = await fetch_page(STRIPE_CHANGELOG_URL)
     content = parse_changelog(html)
@@ -66,13 +68,13 @@ async def check_stripe_changelog() -> dict | None:
     last_snapshot = get_last_snapshot("stripe")
 
     if last_snapshot and last_snapshot.content_hash == current_hash:
-        print("[Scraper] No changes detected.")
+        logger.info("No changes detected")
         return None
 
     version = datetime.utcnow().strftime("%Y-%m-%d-%H%M%S")
     snapshot = save_snapshot("stripe", version, current_hash, content)
 
-    print(f"[Scraper] Change detected! Saved snapshot id={snapshot.id}")
+    logger.info(f"Change detected — saved snapshot id={snapshot.id}")
 
     return {
         "snapshot_id": snapshot.id,

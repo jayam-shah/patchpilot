@@ -1,6 +1,8 @@
 from github import Github, GithubException
 from config import GITHUB_TOKEN
 from database import get_session, Repo, Patch, ChangelogSnapshot
+from logger import get_logger
+logger = get_logger(__name__)
 
 STRIPE_PATTERNS = [
     "stripe.PaymentIntent.create",
@@ -38,12 +40,13 @@ def scan_repo(github_url: str) -> list[dict]:
     client = get_github_client()
     owner, repo_name = parse_repo_url(github_url)
 
-    print(f"[Scanner] Scanning {owner}/{repo_name}")
+    logger.info(f"Scanning {owner}/{repo_name}")
+
 
     try:
         repo = client.get_repo(f"{owner}/{repo_name}")
     except GithubException as e:
-        print(f"[Scanner] Could not access repo: {e.status} {e.data}")
+        logger.error(f"Could not access repo: {e.status} — {e.data}")
         return []
 
     affected_files = []
@@ -67,14 +70,14 @@ def scan_repo(github_url: str) -> list[dict]:
         matched = search_file_for_patterns(file_content, STRIPE_PATTERNS)
 
         if matched:
-            print(f"[Scanner] Found patterns {matched} in {file_obj.path}")
+            logger.debug(f"Found patterns {matched} in {file_obj.path}")
             affected_files.append({
                 "file_path": file_obj.path,
                 "content": file_content,
                 "matched_patterns": matched,
             })
 
-    print(f"[Scanner] Done. {len(affected_files)} affected file(s) found.")
+    logger.info(f"Done — {len(affected_files)} affected file(s) found")
     return affected_files
 
 def save_affected_files(repo_id: int, snapshot_id: int, affected_files: list[dict]) -> list[Patch]:
@@ -101,10 +104,10 @@ def run_scanner(repo_db_id: int, github_url: str, snapshot_id: int) -> list[Patc
     affected_files = scan_repo(github_url)
 
     if not affected_files:
-        print("[Scanner] No affected files. Nothing to patch.")
+        logger.info("No affected files found")
         return []
 
     patches = save_affected_files(repo_db_id, snapshot_id, affected_files)
-    print(f"[Scanner] Saved {len(patches)} patch record(s) to database.")
+    logger.info(f"Saved {len(patches)} patch record(s) to database")
     return patches
 

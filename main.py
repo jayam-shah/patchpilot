@@ -3,16 +3,17 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from database import init_db, get_session, Repo, Patch
 from scheduler import start_scheduler, stop_scheduler
-
+from logger import get_logger
+logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     start_scheduler()
-    print("[App] PatchPilot started.")
+    logger.info("PatchPilot started")
     yield
     stop_scheduler()
-    print("[App] PatchPilot stopped.")
+    logger.info("PatchPilot stopped")
 
 
 app = FastAPI(

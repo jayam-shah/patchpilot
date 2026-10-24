@@ -2,6 +2,8 @@ from github import Github, GithubException
 from datetime import datetime
 from database import get_session, Patch, Repo
 from config import GITHUB_TOKEN
+from logger import get_logger
+logger = get_logger(__name__)
 
 def get_github_client() -> Github:
     if not GITHUB_TOKEN:
@@ -11,10 +13,10 @@ def get_github_client() -> Github:
 def create_branch(repo, branch_name: str, base_sha: str):
     try:
         repo.create_git_ref(f"refs/heads/{branch_name}", base_sha)
-        print(f"[PR Creator] Created branch: {branch_name}")
+        logger.info(f"Created branch: {branch_name}")
     except GithubException as e:
         if e.status == 422:
-            print(f"[PR Creator] Branch already exists, continuing.")
+            logger.warning(f"Branch {branch_name} already exists — continuing")
         else:
             raise
 
@@ -28,9 +30,9 @@ def update_file_on_branch(repo, file_path: str, new_content: str, branch_name: s
             sha=current_file.sha,
             branch=branch_name,
         )
-        print(f"[PR Creator] Updated {file_path}")
+        logger.info(f"Updated {file_path}")
     except GithubException as e:
-        print(f"[PR Creator] Could not update {file_path}: {e.status}")
+        logger.error(f"Could not update {file_path}: {e.status}")
         raise
 
 def build_pr_body(patches: list) -> str:
@@ -57,7 +59,7 @@ def create_pull_request(repo_db_id: int, patches: list) -> str | None:
     try:
         repo_record = session.query(Repo).filter_by(id=repo_db_id).first()
         if not repo_record:
-            print(f"[PR Creator] Repo id={repo_db_id} not found")
+            logger.warning(f"Repo id={repo_db_id} not found in database")
             return None
     finally:
         session.close()
@@ -65,7 +67,7 @@ def create_pull_request(repo_db_id: int, patches: list) -> str | None:
     try:
         repo = client.get_repo(f"{repo_record.owner}/{repo_record.repo_name}")
     except GithubException as e:
-        print(f"[PR Creator] Cannot access repo: {e.status}")
+        logger.error(f"Cannot access repo: {e.status}")
         return None
 
     default_branch = repo.default_branch
@@ -87,10 +89,10 @@ def create_pull_request(repo_db_id: int, patches: list) -> str | None:
             head=branch_name,
             base=default_branch,
         )
-        print(f"[PR Creator] PR created: {pr.html_url}")
+        logger.info(f"PR created: {pr.html_url}")
         return pr.html_url
     except GithubException as e:
-        print(f"[PR Creator] Failed to create PR: {e.status} {e.data}")
+        logger.error(f"Failed to create PR: {e.status} — {e.data}")
         return None
 
 def save_pr_url(patches: list, pr_url: str):
@@ -101,7 +103,7 @@ def save_pr_url(patches: list, pr_url: str):
             p.pr_url = pr_url
             p.status = "pr_opened"
         session.commit()
-        print(f"[PR Creator] Saved PR URL to {len(patches)} patch record(s)")
+        logger.info(f"Saved PR URL to {len(patches)} patch record(s)")
     finally:
         session.close()
 
@@ -109,10 +111,10 @@ def run_pr_creator(repo_db_id: int, patches: list) -> str | None:
     patched = [p for p in patches if p.patched_code and p.status == "patched"]
 
     if not patched:
-        print("[PR Creator] No patched files ready.")
+        logger.warning("No patched files ready for PR")
         return None
 
-    print(f"[PR Creator] Creating PR for {len(patched)} file(s)...")
+    logger.info(f"Creating PR for {len(patched)} file(s)")
     pr_url = create_pull_request(repo_db_id, patched)
 
     if pr_url:

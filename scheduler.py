@@ -5,21 +5,23 @@ from scraper.stripe_scraper import check_stripe_changelog
 from scanner.repo_scanner import run_scanner
 from patcher.ollama_patcher import run_patcher
 from pr_creator.github_pr import run_pr_creator
+from logger import get_logger
+logger = get_logger(__name__)
 
 scheduler = AsyncIOScheduler()
 
 async def run_full_pipeline():
-    print("[Scheduler] Starting scheduled run...")
+    logger.info("Starting scheduled run")
 
     result = await check_stripe_changelog()
 
     if result is None:
-        print("[Scheduler] No change detected. Nothing to do.")
+        logger.info("No change detected — skipping")
         return
 
     snapshot_id = result["snapshot_id"]
     changelog_content = result["content"]
-    print(f"[Scheduler] Change detected. Snapshot id={snapshot_id}")
+    logger.info(f"Change detected — snapshot id={snapshot_id}")
 
     session = get_session()
     try:
@@ -29,31 +31,31 @@ async def run_full_pipeline():
         session.close()
 
     if not repo_list:
-        print("[Scheduler] No active repos registered. Skipping.")
+        logger.warning("No active repos registered")
         return
 
-    print(f"[Scheduler] Found {len(repo_list)} active repo(s) to process.")
+    logger.info(f"Found {len(repo_list)} active repo(s) to process")
 
     for repo_id, github_url in repo_list:
-        print(f"[Scheduler] --- Processing {github_url} ---")
+        logger.info(f"Processing {github_url}")
 
         patches = run_scanner(repo_id, github_url, snapshot_id)
         if not patches:
-            print(f"[Scheduler] No affected files found. Skipping.")
+            logger.info("No affected files found — skipping")
             continue
 
         results = await run_patcher(patches, changelog_content)
         if not results:
-            print(f"[Scheduler] Patcher produced no output. Skipping.")
+            logger.warning("Patcher produced no output")
             continue
 
         pr_url = run_pr_creator(repo_id, results)
         if pr_url:
-            print(f"[Scheduler] PR opened: {pr_url}")
+            logger.info(f"PR opened: {pr_url}")
         else:
-            print(f"[Scheduler] PR creation failed.")
+            logger.error("PR creation failed")
 
-    print("[Scheduler] Run complete.")
+    logger.info("Run complete")
 
 def start_scheduler():
     scheduler.add_job(
@@ -63,10 +65,10 @@ def start_scheduler():
         replace_existing=True,
     )
     scheduler.start()
-    print("[Scheduler] Started. Pipeline will run every 24 hours.")
+    logger.info("Scheduler started — pipeline runs every 24 hours")
 
 
 def stop_scheduler():
     if scheduler.running:
         scheduler.shutdown()
-        print("[Scheduler] Stopped.")
+        logger.info("Scheduler stopped")

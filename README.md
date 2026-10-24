@@ -111,4 +111,4 @@ Roadmap: multi-API support (Twilio, OpenAI), multi-language support, email notif
 
 Jayam Shah — MS Applied Data Intelligence, SJSU
 
-[GitHub]([https://github.com/jayam-shah](https://github.com/jayam-shah)) · [LinkedIn]([https://linkedin.com/in/jayam-shah](https://linkedin.com/in/jayam-shah))
+[GitHub]([https://github.com/jayam-shah](https://github.com/jayam-shah)) · [LinkedIn]([https://www.linkedin.com/in/jayamshah2278/](https://www.linkedin.com/in/jayamshah2278/))

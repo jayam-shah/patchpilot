@@ -246,6 +246,35 @@
     </div>
 
     <section>
+        <h2>Account</h2>
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:240px; background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:20px;">
+                <div style="font-size:13px; color:#94a3b8; margin-bottom:12px; font-weight:500;">Create account</div>
+                <input type="email" id="reg-email" placeholder="your@email.com"
+                    style="width:100%; background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:8px 12px; color:#e2e8f0; font-size:13px; margin-bottom:8px;" />
+                <input type="password" id="reg-password" placeholder="Password"
+                    style="width:100%; background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:8px 12px; color:#e2e8f0; font-size:13px; margin-bottom:8px;" />
+                <button onclick="registerUser()"
+                    style="width:100%; background:#3b82f6; color:#fff; border:none; border-radius:6px; padding:8px; font-size:13px; cursor:pointer;">
+                    Create account
+                </button>
+                <div class="msg" id="reg-msg"></div>
+            </div>
+            <div style="flex:1; min-width:240px; background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:20px;">
+                <div style="font-size:13px; color:#94a3b8; margin-bottom:12px; font-weight:500;">Login</div>
+                <input type="email" id="login-email" placeholder="your@email.com"
+                    style="width:100%; background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:8px 12px; color:#e2e8f0; font-size:13px; margin-bottom:8px;" />
+                <input type="password" id="login-password" placeholder="Password"
+                    style="width:100%; background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:8px 12px; color:#e2e8f0; font-size:13px; margin-bottom:8px;" />
+                <button onclick="loginUser()"
+                    style="width:100%; background:#3b82f6; color:#fff; border:none; border-radius:6px; padding:8px; font-size:13px; cursor:pointer;">
+                    Login
+                </button>
+                <div class="msg" id="login-msg"></div>
+            </div>
+        </div>
+    </section>
+    <section>
         <h2>Register a repo</h2>
         <div class="register-form">
             <input type="text" id="repo-url" placeholder="https://github.com/your-org/your-repo" />
@@ -422,6 +451,54 @@
         loadRepos();
         loadPatches();
     }
+
+    async function registerUser() {
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const msg = document.getElementById('reg-msg');
+    msg.className = 'msg';
+    const res = await fetch(`${API}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+        localStorage.setItem('patchpilot_api_key', data.api_key);
+        document.getElementById('api-key').value = data.api_key;
+        msg.textContent = 'Account created! API key saved automatically.';
+        msg.className = 'msg success';
+        loadRepos();
+        loadPatches();
+    } else {
+        msg.textContent = `Error: ${data.detail}`;
+        msg.className = 'msg error';
+    }
+}
+
+async function loginUser() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const msg = document.getElementById('login-msg');
+    msg.className = 'msg';
+    const res = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+        localStorage.setItem('patchpilot_api_key', data.api_key);
+        document.getElementById('api-key').value = data.api_key;
+        msg.textContent = `Logged in as ${data.email}. API key loaded.`;
+        msg.className = 'msg success';
+        loadRepos();
+        loadPatches();
+    } else {
+        msg.textContent = `Error: ${data.detail}`;
+        msg.className = 'msg error';
+    }
+}
 </script>
 
 </body>

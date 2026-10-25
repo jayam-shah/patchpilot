@@ -37,7 +37,7 @@ async def run_full_pipeline():
         logger.warning("No active repos registered")
         return
 
-    api_names = set(api_name for _, _, api_name in repo_list)
+    api_names = {api_name for _, _, api_name in repo_list}
 
     for api_name in api_names:
         scraper_fn = SCRAPERS.get(api_name)

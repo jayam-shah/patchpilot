@@ -59,8 +59,7 @@ class BaseAPIScraper(ABC):
             session.close()
 
     async def check_changelog(self) -> dict | None:
-        from datetime import datetime
-
+        from datetime import datetime, timezone, UTC
         import httpx
 
         logger.info(f"[{self.api_name}] Checking changelog at {datetime.now(tz=UTC)}")
@@ -82,7 +81,6 @@ class BaseAPIScraper(ABC):
             logger.info(f"[{self.api_name}] No changes detected")
             return None
 
-        from datetime import UTC, datetime
 
         version = datetime.now(tz=UTC).strftime("%Y-%m-%d-%H%M%S")
         snapshot = self.save_snapshot(version, current_hash, content)

@@ -2,6 +2,7 @@ annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
 APScheduler==3.11.3
+bcrypt==4.0.1
 beautifulsoup4==4.15.0
 black==26.10.1
 certifi==2026.7.22
@@ -21,6 +22,7 @@ limits==5.8.0
 MarkupSafe==3.0.4
 mypy_extensions==1.1.0
 packaging==26.3
+passlib==1.7.4
 pathspec==1.1.1
 platformdirs==4.13.5
 pluggy==1.7.0

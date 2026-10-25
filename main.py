@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from auth import verify_api_key
-from database import Patch, Repo, get_session, init_db
+from database import Patch, Repo, User, get_session, init_db
 from logger import get_logger
 from scheduler import start_scheduler, stop_scheduler
 
@@ -43,10 +43,51 @@ class RepoRegisterRequest(BaseModel):
     api_name: str = "stripe"
 
 
+class UserRegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
 @app.get("/health")
 @limiter.limit("60/minute")
 def health(request: Request):
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.post("/auth/register", status_code=201)
+@limiter.limit("5/minute")
+def register_user(request: Request, body: UserRegisterRequest):
+    from users import create_user
+
+    try:
+        user = create_user(body.email, body.password)
+        return {
+            "message": "Account created successfully",
+            "email": user.email,
+            "api_key": user.api_key,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.post("/auth/login")
+@limiter.limit("10/minute")
+def login_user(request: Request, body: UserLoginRequest):
+    from users import get_user_by_email
+
+    user = get_user_by_email(body.email, body.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    return {
+        "message": "Login successful",
+        "email": user.email,
+        "api_key": user.api_key,
+    }
 
 
 @app.post("/repos", status_code=201)
@@ -54,7 +95,7 @@ def health(request: Request):
 def register_repo(
     request: Request,
     body: RepoRegisterRequest,
-    _: str = Depends(verify_api_key),
+    current_user: User = Depends(verify_api_key),
 ):
     parts = body.github_url.rstrip("/").split("/")
     if len(parts) < 2:
@@ -64,9 +105,10 @@ def register_repo(
 
     session = get_session()
     try:
-        existing = (
-            session.query(Repo).filter_by(owner=owner, repo_name=repo_name).first()
-        )
+        query = session.query(Repo).filter_by(owner=owner, repo_name=repo_name)
+        if current_user:
+            query = query.filter_by(user_id=current_user.id)
+        existing = query.first()
         if existing:
             raise HTTPException(
                 status_code=409,
@@ -77,6 +119,7 @@ def register_repo(
             owner=owner,
             repo_name=repo_name,
             api_name=body.api_name,
+            user_id=current_user.id if current_user else None,
         )
         session.add(repo)
         session.commit()
@@ -95,10 +138,13 @@ def register_repo(
 
 @app.get("/repos")
 @limiter.limit("30/minute")
-def list_repos(request: Request, _: str = Depends(verify_api_key)):
+def list_repos(request: Request, current_user: User = Depends(verify_api_key)):
     session = get_session()
     try:
-        repos = session.query(Repo).filter_by(is_active=True).all()
+        query = session.query(Repo).filter_by(is_active=True)
+        if current_user:
+            query = query.filter_by(user_id=current_user.id)
+        repos = query.all()
         return [
             {
                 "id": r.id,
@@ -115,7 +161,7 @@ def list_repos(request: Request, _: str = Depends(verify_api_key)):
 
 @app.get("/patches")
 @limiter.limit("30/minute")
-def list_patches(request: Request, _: str = Depends(verify_api_key)):
+def list_patches(request: Request, current_user: User = Depends(verify_api_key)):
     session = get_session()
     try:
         patches = session.query(Patch).order_by(Patch.created_at.desc()).limit(50).all()
@@ -136,7 +182,11 @@ def list_patches(request: Request, _: str = Depends(verify_api_key)):
 
 @app.delete("/repos/{repo_id}")
 @limiter.limit("10/minute")
-def deactivate_repo(repo_id: int, request: Request, _: str = Depends(verify_api_key)):
+def deactivate_repo(
+    repo_id: int,
+    request: Request,
+    current_user: User = Depends(verify_api_key),
+):
     session = get_session()
     try:
         repo = session.query(Repo).filter_by(id=repo_id).first()

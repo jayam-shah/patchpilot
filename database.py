@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -27,17 +27,32 @@ engine = create_engine(
 SessionLocal = sessionmaker(bind=engine)
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String, unique=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    api_key = Column(String, unique=True, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
+
+    repos = relationship("Repo", back_populates="user")
+
+
 class Repo(Base):
     __tablename__ = "repos"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     github_url = Column(String, nullable=False)
     owner = Column(String, nullable=False)
     repo_name = Column(String, nullable=False)
     api_name = Column(String, nullable=False, default="stripe")
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
 
+    user = relationship("User", back_populates="repos")
     patches = relationship("Patch", back_populates="repo")
 
 
@@ -77,3 +92,9 @@ def init_db():
 
 def get_session():
     return SessionLocal()
+
+
+def generate_api_key() -> str:
+    import secrets
+
+    return secrets.token_hex(32)

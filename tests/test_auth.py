@@ -1,4 +1,8 @@
+import os
+
 from fastapi.testclient import TestClient
+
+os.environ.setdefault("API_KEY", "test-key")
 
 from main import app
 
@@ -20,13 +24,6 @@ def test_repos_wrong_key():
     assert response.status_code == 401
 
 
-def test_repos_correct_key(monkeypatch):
-    monkeypatch.setenv("API_KEY", "test-key")
-    import importlib
-
-    import auth
-
-    importlib.reload(auth)
-
+def test_repos_correct_key():
     response = client.get("/repos", headers={"X-API-Key": "test-key"})
-    assert response.status_code in (200, 401)
+    assert response.status_code == 200

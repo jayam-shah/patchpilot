@@ -133,6 +133,6 @@ def deactivate_repo(repo_id: int, _: str = Depends(verify_api_key)):
 
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard():
+def dashboard():
     with open("templates/index.html") as f:
         return f.read()

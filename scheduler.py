@@ -13,23 +13,23 @@ logger = get_logger(__name__)
 scheduler = AsyncIOScheduler()
 
 
+from scraper.openai_scraper import check_openai_changelog
+from scraper.twilio_scraper import check_twilio_changelog
+
+SCRAPERS = {
+    "stripe": check_stripe_changelog,
+    "twilio": check_twilio_changelog,
+    "openai": check_openai_changelog,
+}
+
+
 async def run_full_pipeline():
     logger.info("Starting scheduled run")
 
-    result = await check_stripe_changelog()
-
-    if result is None:
-        logger.info("No change detected — skipping")
-        return
-
-    snapshot_id = result["snapshot_id"]
-    changelog_content = result["content"]
-    logger.info(f"Change detected — snapshot id={snapshot_id}")
-
     session = get_session()
     try:
-        repos = session.query(Repo).filter_by(is_active=True, api_name="stripe").all()
-        repo_list = [(r.id, r.github_url) for r in repos]
+        repos = session.query(Repo).filter_by(is_active=True).all()
+        repo_list = [(r.id, r.github_url, r.api_name) for r in repos]
     finally:
         session.close()
 
@@ -37,26 +37,39 @@ async def run_full_pipeline():
         logger.warning("No active repos registered")
         return
 
-    logger.info(f"Found {len(repo_list)} active repo(s) to process")
+    api_names = set(api_name for _, _, api_name in repo_list)
 
-    for repo_id, github_url in repo_list:
-        logger.info(f"Processing {github_url}")
-
-        patches = run_scanner(repo_id, github_url, snapshot_id)
-        if not patches:
-            logger.info("No affected files found — skipping")
+    for api_name in api_names:
+        scraper_fn = SCRAPERS.get(api_name)
+        if not scraper_fn:
+            logger.warning(f"No scraper found for {api_name}")
             continue
 
-        results = await run_patcher(patches, changelog_content)
-        if not results:
-            logger.warning("Patcher produced no output")
+        result = await scraper_fn()
+        if result is None:
+            logger.info(f"[{api_name}] No change detected")
             continue
 
-        pr_url = run_pr_creator(repo_id, results)
-        if pr_url:
-            logger.info(f"PR opened: {pr_url}")
-        else:
-            logger.error("PR creation failed")
+        snapshot_id = result["snapshot_id"]
+        changelog_content = result["content"]
+        logger.info(f"[{api_name}] Change detected — snapshot id={snapshot_id}")
+
+        for repo_id, github_url, repo_api_name in repo_list:
+            if repo_api_name != api_name:
+                continue
+
+            logger.info(f"Processing {github_url}")
+            patches = run_scanner(repo_id, github_url, snapshot_id, api_name)
+            if not patches:
+                continue
+
+            results = await run_patcher(patches, changelog_content)
+            if not results:
+                continue
+
+            pr_url = run_pr_creator(repo_id, results)
+            if pr_url:
+                logger.info(f"PR opened: {pr_url}")
 
     logger.info("Run complete")
 

@@ -278,6 +278,11 @@
         <h2>Register a repo</h2>
         <div class="register-form">
             <input type="text" id="repo-url" placeholder="https://github.com/your-org/your-repo" />
+            <select id="api-name" style="background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:10px 14px; color:#e2e8f0; font-size:14px;">
+                <option value="stripe">Stripe</option>
+                <option value="twilio">Twilio</option>
+                <option value="openai">OpenAI</option>
+            </select>
             <button onclick="registerRepo()">Monitor</button>
         </div>
         <div class="msg" id="register-msg"></div>
@@ -408,33 +413,34 @@
     }
 
     async function registerRepo() {
-        const url = document.getElementById('repo-url').value.trim();
-        const msg = document.getElementById('register-msg');
-        msg.className = 'msg';
+    const url = document.getElementById('repo-url').value.trim();
+    const apiName = document.getElementById('api-name').value;
+    const msg = document.getElementById('register-msg');
+    msg.className = 'msg';
 
-        if (!url) {
-            msg.textContent = 'Please enter a GitHub URL.';
-            msg.className = 'msg error';
-            return;
-        }
-
-        const res = await fetch(`${API}/repos`, {
-            method: 'POST',
-            headers: headers(),
-            body: JSON.stringify({ github_url: url, api_name: 'stripe' }),
-        });
-
-        if (res.ok) {
-            msg.textContent = `Registered successfully. PatchPilot is now monitoring ${url}`;
-            msg.className = 'msg success';
-            document.getElementById('repo-url').value = '';
-            loadRepos();
-        } else {
-            const data = await res.json();
-            msg.textContent = `Error: ${data.detail}`;
-            msg.className = 'msg error';
-        }
+    if (!url) {
+        msg.textContent = 'Please enter a GitHub URL.';
+        msg.className = 'msg error';
+        return;
     }
+
+    const res = await fetch(`${API}/repos`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ github_url: url, api_name: apiName }),
+    });
+
+    if (res.ok) {
+        msg.textContent = `Registered successfully. PatchPilot is now monitoring ${url}`;
+        msg.className = 'msg success';
+        document.getElementById('repo-url').value = '';
+        loadRepos();
+    } else {
+        const data = await res.json();
+        msg.textContent = `Error: ${data.detail}`;
+        msg.className = 'msg error';
+    }
+}
 
     async function deactivateRepo(id) {
         if (!confirm('Stop monitoring this repo?')) return;

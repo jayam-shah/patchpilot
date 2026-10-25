@@ -6,15 +6,32 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
-STRIPE_PATTERNS = [
-    "stripe.PaymentIntent.create",
-    "stripe.Customer.create",
-    "stripe.Charge.create",
-    "stripe.Subscription.create",
-    "stripe.PaymentMethod.attach",
-    "stripe.Invoice.create",
-    "stripe.Refund.create",
-]
+API_PATTERNS = {
+    "stripe": [
+        "stripe.PaymentIntent.create",
+        "stripe.Customer.create",
+        "stripe.Charge.create",
+        "stripe.Subscription.create",
+        "stripe.PaymentMethod.attach",
+        "stripe.Invoice.create",
+        "stripe.Refund.create",
+    ],
+    "twilio": [
+        "client.messages.create",
+        "twilio.rest.Client",
+        "MessagingResponse",
+        "client.calls.create",
+        "client.verify",
+    ],
+    "openai": [
+        "openai.ChatCompletion.create",
+        "client.chat.completions.create",
+        "openai.Completion.create",
+        "openai.Embedding.create",
+        "client.embeddings.create",
+        "openai.Image.create",
+    ],
+}
 
 SCANNABLE_EXTENSIONS = [".py", ".js", ".ts", ".rb", ".go", ".java"]
 
@@ -42,11 +59,11 @@ def search_file_for_patterns(file_content: str, patterns: list[str]) -> list[str
     return matched_patterns
 
 
-def scan_repo(github_url: str) -> list[dict]:
+def scan_repo(github_url: str, api_name: str = "stripe") -> list[dict]:
     client = get_github_client()
     owner, repo_name = parse_repo_url(github_url)
-
-    logger.info(f"Scanning {owner}/{repo_name}")
+    patterns = API_PATTERNS.get(api_name, API_PATTERNS["stripe"])
+    logger.info(f"Scanning {owner}/{repo_name} for {api_name} patterns")
 
     try:
         repo = client.get_repo(f"{owner}/{repo_name}")
@@ -73,7 +90,7 @@ def scan_repo(github_url: str) -> list[dict]:
             logger.debug(f"Skipping {file_obj.path}: {e}")
             continue
 
-        matched = search_file_for_patterns(file_content, STRIPE_PATTERNS)
+        matched = search_file_for_patterns(file_content, patterns)
 
         if matched:
             logger.debug(f"Found patterns {matched} in {file_obj.path}")
@@ -111,8 +128,10 @@ def save_affected_files(
         session.close()
 
 
-def run_scanner(repo_db_id: int, github_url: str, snapshot_id: int) -> list[Patch]:
-    affected_files = scan_repo(github_url)
+def run_scanner(
+    repo_db_id: int, github_url: str, snapshot_id: int, api_name: str = "stripe"
+) -> list[Patch]:
+    affected_files = scan_repo(github_url, api_name)
 
     if not affected_files:
         logger.info("No affected files found")

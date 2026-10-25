@@ -170,9 +170,7 @@ def list_patches(
 ):
     session = get_session()
     try:
-        patches = (
-            session.query(Patch).order_by(Patch.created_at.desc()).limit(50).all()
-        )
+        patches = session.query(Patch).order_by(Patch.created_at.desc()).limit(50).all()
         return [
             {
                 "id": p.id,

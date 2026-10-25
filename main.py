@@ -1,8 +1,9 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
+from auth import verify_api_key
 from database import Patch, Repo, get_session, init_db
 from logger import get_logger
 from scheduler import start_scheduler, stop_scheduler
@@ -39,7 +40,7 @@ def health():
 
 
 @app.post("/repos", status_code=201)
-def register_repo(request: RepoRegisterRequest):
+def register_repo(request: RepoRegisterRequest, _: str = Depends(verify_api_key)):
     parts = request.github_url.rstrip("/").split("/")
     if len(parts) < 2:
         raise HTTPException(status_code=400, detail="Invalid GitHub URL")
@@ -53,7 +54,8 @@ def register_repo(request: RepoRegisterRequest):
         )
         if existing:
             raise HTTPException(
-                status_code=409, detail=f"Repo {owner}/{repo_name} already registered"
+                status_code=409,
+                detail=f"Repo {owner}/{repo_name} already registered",
             )
         repo = Repo(
             github_url=request.github_url,
@@ -77,7 +79,7 @@ def register_repo(request: RepoRegisterRequest):
 
 
 @app.get("/repos")
-def list_repos():
+def list_repos(_: str = Depends(verify_api_key)):
     session = get_session()
     try:
         repos = session.query(Repo).filter_by(is_active=True).all()
@@ -96,7 +98,7 @@ def list_repos():
 
 
 @app.get("/patches")
-def list_patches():
+def list_patches(_: str = Depends(verify_api_key)):
     session = get_session()
     try:
         patches = session.query(Patch).order_by(Patch.created_at.desc()).limit(50).all()
@@ -116,7 +118,7 @@ def list_patches():
 
 
 @app.delete("/repos/{repo_id}")
-def deactivate_repo(repo_id: int):
+def deactivate_repo(repo_id: int, _: str = Depends(verify_api_key)):
     session = get_session()
     try:
         repo = session.query(Repo).filter_by(id=repo_id).first()

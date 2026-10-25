@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
 
+from database import init_db
 from main import app
+
+init_db()
 
 client = TestClient(app)
 

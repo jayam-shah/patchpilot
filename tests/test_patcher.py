@@ -35,4 +35,3 @@ def test_empty_input():
 def test_only_fences():
     result = clean_code_output("```\n```")
     assert result == ""
-    

@@ -77,11 +77,13 @@ def scan_repo(github_url: str) -> list[dict]:
 
         if matched:
             logger.debug(f"Found patterns {matched} in {file_obj.path}")
-            affected_files.append({
-                "file_path": file_obj.path,
-                "content": file_content,
-                "matched_patterns": matched,
-            })
+            affected_files.append(
+                {
+                    "file_path": file_obj.path,
+                    "content": file_content,
+                    "matched_patterns": matched,
+                }
+            )
 
     logger.info(f"Done — {len(affected_files)} affected file(s) found")
     return affected_files

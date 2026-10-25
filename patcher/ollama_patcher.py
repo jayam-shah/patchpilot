@@ -46,21 +46,36 @@ def clean_code_output(raw: str) -> str:
         line = code_lines[i].strip()
         if line == "" or line.startswith("#"):
             continue
-        if not any(
-            [
-                line.endswith(":"),
-                line.endswith(","),
-                line.endswith(")"),
-                line.endswith("]"),
-                line.endswith("}"),
-                line.endswith("'"),
-                line.endswith('"'),
-                line.startswith("return "),
-                line.startswith("import "),
-                line.startswith("from "),
-            ]
-        ) and len(line.split()) > 6 and not line.startswith(
-            ("def ", "class ", "if ", "elif ", "else", "for ", "while ", "with ", "try", "except")
+        if (
+            not any(
+                [
+                    line.endswith(":"),
+                    line.endswith(","),
+                    line.endswith(")"),
+                    line.endswith("]"),
+                    line.endswith("}"),
+                    line.endswith("'"),
+                    line.endswith('"'),
+                    line.startswith("return "),
+                    line.startswith("import "),
+                    line.startswith("from "),
+                ]
+            )
+            and len(line.split()) > 6
+            and not line.startswith(
+                (
+                    "def ",
+                    "class ",
+                    "if ",
+                    "elif ",
+                    "else",
+                    "for ",
+                    "while ",
+                    "with ",
+                    "try",
+                    "except",
+                )
+            )
         ):
             code_lines = code_lines[:i]
         break

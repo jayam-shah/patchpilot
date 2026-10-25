@@ -19,7 +19,7 @@ def send_pr_notification(
         return False
 
     try:
-        response = resend.Emails.send(
+        resend.Emails.send(
             {
                 "from": "PatchPilot <onboarding@resend.dev>",
                 "to": NOTIFICATION_EMAIL,
@@ -60,6 +60,6 @@ def send_pr_notification(
         )
         logger.info(f"Email notification sent for PR: {pr_url}")
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to send email notification: {e}")
         return False

@@ -34,6 +34,7 @@ pytest==9.1.1
 python-dotenv==1.2.3
 pytokens==0.4.1
 requests==2.34.2
+resend==2.50.0
 ruff==0.17.2
 soupsieve==2.9.2
 SQLAlchemy==2.0.52

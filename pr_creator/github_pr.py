@@ -5,6 +5,7 @@ from github import Github, GithubException
 from config import GITHUB_TOKEN
 from database import Patch, Repo, get_session
 from logger import get_logger
+from notifications import send_pr_notification
 
 logger = get_logger(__name__)
 
@@ -131,5 +132,20 @@ def run_pr_creator(repo_db_id: int, patches: list) -> str | None:
 
     if pr_url:
         save_pr_url(patched, pr_url)
+
+        session = get_session()
+        try:
+            repo = session.query(Repo).filter_by(id=repo_db_id).first()
+            repo_url = repo.github_url if repo else "unknown"
+        finally:
+            session.close()
+
+        for patch in patched:
+            send_pr_notification(
+                repo_url=repo_url,
+                file_path=patch.file_path,
+                pr_url=pr_url,
+                api_name="Stripe",
+            )
 
     return pr_url

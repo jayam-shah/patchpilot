@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from auth import verify_api_key
-from database import Patch, Repo, User, get_session, init_db
+from database import ChangelogSnapshot, Patch, Repo, User, get_session, init_db
 from logger import get_logger
 from scheduler import start_scheduler, stop_scheduler
 
@@ -51,6 +51,10 @@ class UserRegisterRequest(BaseModel):
 class UserLoginRequest(BaseModel):
     email: str
     password: str
+
+
+class PatchStatusUpdate(BaseModel):
+    status: str
 
 
 @app.get("/health")
@@ -182,6 +186,69 @@ def list_patches(
             }
             for p in patches
         ]
+    finally:
+        session.close()
+
+
+@app.patch("/patches/{patch_id}")
+@limiter.limit("30/minute")
+def update_patch_status(
+    patch_id: int,
+    request: Request,
+    body: PatchStatusUpdate,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    if body.status not in ("merged", "dismissed"):
+        raise HTTPException(
+            status_code=400, detail="Status must be merged or dismissed"
+        )
+    session = get_session()
+    try:
+        patch = session.query(Patch).filter_by(id=patch_id).first()
+        if not patch:
+            raise HTTPException(status_code=404, detail="Patch not found")
+        patch.status = body.status
+        session.commit()
+        return {"message": f"Patch {patch_id} marked as {body.status}"}
+    finally:
+        session.close()
+
+
+@app.get("/stats")
+@limiter.limit("30/minute")
+def get_stats(
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    session = get_session()
+    try:
+        query = session.query(Repo).filter_by(is_active=True)
+        if current_user:
+            query = query.filter_by(user_id=current_user.id)
+        total_repos = query.count()
+
+        repo_ids = [r.id for r in query.all()]
+        patch_query = session.query(Patch)
+        if current_user and repo_ids:
+            patch_query = patch_query.filter(Patch.repo_id.in_(repo_ids))
+
+        total_patches = patch_query.count()
+        total_prs = patch_query.filter_by(status="pr_opened").count()
+
+        last_snapshot = (
+            session.query(ChangelogSnapshot)
+            .order_by(ChangelogSnapshot.scraped_at.desc())
+            .first()
+        )
+        last_checked = str(last_snapshot.scraped_at) if last_snapshot else "Never"
+
+        return {
+            "total_repos": total_repos,
+            "total_patches": total_patches,
+            "total_prs": total_prs,
+            "last_checked": last_checked,
+            "apis_watched": ["Stripe", "Twilio", "OpenAI"],
+        }
     finally:
         session.close()
 

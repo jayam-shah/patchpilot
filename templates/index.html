@@ -22,10 +22,20 @@
             gap: 12px;
         }
 
+        header a {
+            font-size: 13px;
+            color: #64748b;
+            margin-right: 4px;
+            text-decoration: none;
+        }
+
+        header a:hover { color: #94a3b8; }
+
         header h1 {
             font-size: 20px;
             font-weight: 600;
             color: #fff;
+            display: inline;
         }
 
         header span {
@@ -70,10 +80,7 @@
             font-family: monospace;
         }
 
-        .auth-bar input:focus {
-            outline: none;
-            border-color: #3b82f6;
-        }
+        .auth-bar input:focus { outline: none; border-color: #3b82f6; }
 
         .auth-bar button {
             background: #3b82f6;
@@ -88,9 +95,7 @@
 
         .auth-bar button:hover { background: #2563eb; }
 
-        section {
-            margin-bottom: 40px;
-        }
+        section { margin-bottom: 40px; }
 
         section h2 {
             font-size: 16px;
@@ -118,12 +123,17 @@
             font-size: 14px;
         }
 
-        .register-form input:focus {
-            outline: none;
-            border-color: #3b82f6;
-        }
-
+        .register-form input:focus { outline: none; border-color: #3b82f6; }
         .register-form input::placeholder { color: #4a5568; }
+
+        .register-form select {
+            background: #0f1117;
+            border: 1px solid #2d3748;
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: #e2e8f0;
+            font-size: 14px;
+        }
 
         .register-form button {
             background: #3b82f6;
@@ -149,11 +159,7 @@
         .msg.success { background: #0d2d1a; color: #4ade80; display: block; }
         .msg.error   { background: #2d0d0d; color: #f87171; display: block; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
 
         th {
             text-align: left;
@@ -182,10 +188,12 @@
             font-weight: 500;
         }
 
-        .badge.active   { background: #0d2d1a; color: #4ade80; }
-        .badge.pending  { background: #1a1a0d; color: #facc15; }
-        .badge.patched  { background: #0d1a2d; color: #60a5fa; }
-        .badge.pr_opened{ background: #1a0d2d; color: #c084fc; }
+        .badge.active    { background: #0d2d1a; color: #4ade80; }
+        .badge.pending   { background: #1a1a0d; color: #facc15; }
+        .badge.patched   { background: #0d1a2d; color: #60a5fa; }
+        .badge.pr_opened { background: #1a0d2d; color: #c084fc; }
+        .badge.merged    { background: #0d2d1a; color: #4ade80; }
+        .badge.dismissed { background: #1a1a1a; color: #64748b; }
 
         .pr-link {
             color: #60a5fa;
@@ -205,10 +213,20 @@
             cursor: pointer;
         }
 
-        .deactivate-btn:hover {
-            border-color: #ef4444;
-            color: #ef4444;
+        .deactivate-btn:hover { border-color: #ef4444; color: #ef4444; }
+
+        .action-btn {
+            background: none;
+            border: 1px solid #2d3748;
+            color: #94a3b8;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: 4px;
         }
+
+        .action-btn:hover { border-color: #4ade80; color: #4ade80; }
 
         .empty {
             color: #4a5568;
@@ -233,11 +251,31 @@
 <body>
 
 <header>
+    <a href="/">← Home</a>
     <h1>PatchPilot</h1>
     <span>v0.1.0</span>
 </header>
 
 <main>
+
+    <div id="stats-bar" style="display:none; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:28px;">
+        <div style="background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:16px 20px;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Repos monitored</div>
+            <div id="stat-repos" style="font-size:24px; font-weight:600; color:#fff;">—</div>
+        </div>
+        <div style="background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:16px 20px;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Patches generated</div>
+            <div id="stat-patches" style="font-size:24px; font-weight:600; color:#fff;">—</div>
+        </div>
+        <div style="background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:16px 20px;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">PRs opened</div>
+            <div id="stat-prs" style="font-size:24px; font-weight:600; color:#c084fc;">—</div>
+        </div>
+        <div style="background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:16px 20px;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Last checked</div>
+            <div id="stat-last" style="font-size:13px; font-weight:500; color:#94a3b8; margin-top:4px;">—</div>
+        </div>
+    </div>
 
     <div class="auth-bar">
         <label>API Key</label>
@@ -274,11 +312,12 @@
             </div>
         </div>
     </section>
+
     <section>
         <h2>Register a repo</h2>
         <div class="register-form">
             <input type="text" id="repo-url" placeholder="https://github.com/your-org/your-repo" />
-            <select id="api-name" style="background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:10px 14px; color:#e2e8f0; font-size:14px;">
+            <select id="api-name">
                 <option value="stripe">Stripe</option>
                 <option value="twilio">Twilio</option>
                 <option value="openai">OpenAI</option>
@@ -323,6 +362,7 @@
         localStorage.setItem('patchpilot_api_key', key);
         loadRepos();
         loadPatches();
+        loadStats();
     }
 
     function headers() {
@@ -330,6 +370,21 @@
             'Content-Type': 'application/json',
             'X-API-Key': getKey(),
         };
+    }
+
+    async function loadStats() {
+        const res = await fetch(`${API}/stats`, { headers: headers() });
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('stat-repos').textContent = data.total_repos;
+        document.getElementById('stat-patches').textContent = data.total_patches;
+        document.getElementById('stat-prs').textContent = data.total_prs;
+        const last = data.last_checked;
+        document.getElementById('stat-last').textContent =
+            last === 'Never' ? 'Never' : new Date(last).toLocaleDateString('en-US', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        document.getElementById('stats-bar').style.display = 'grid';
     }
 
     async function loadRepos() {
@@ -357,8 +412,8 @@
                 <tbody>
                     ${repos.map(r => `
                         <tr>
-                            <td>${r.github_url}</td>
-                            <td>${r.api_name}</td>
+                            <td><a href="${r.github_url}" target="_blank" style="color:#60a5fa; text-decoration:none;">${r.github_url}</a></td>
+                            <td><span style="text-transform:capitalize;">${r.api_name}</span></td>
                             <td><span class="badge active">active</span></td>
                             <td>
                                 <button class="deactivate-btn" onclick="deactivateRepo(${r.id})">
@@ -392,19 +447,26 @@
                         <th>Status</th>
                         <th>PR</th>
                         <th>Date</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     ${patches.map(p => `
                         <tr>
-                            <td>${p.file_path}</td>
-                            <td><span class="badge ${p.status}">${p.status}</span></td>
+                            <td style="font-family:monospace; font-size:13px;">${p.file_path}</td>
+                            <td><span class="badge ${p.status}">${p.status.replace('_', ' ')}</span></td>
                             <td>
                                 ${p.pr_url
                                     ? `<a class="pr-link" href="${p.pr_url}" target="_blank">View PR →</a>`
                                     : '—'}
                             </td>
-                            <td>${p.created_at.split('T')[0]}</td>
+                            <td style="color:#64748b; font-size:13px;">${p.created_at.split(' ')[0]}</td>
+                            <td>
+                                ${p.status === 'pr_opened' ? `
+                                    <button class="action-btn" onclick="updatePatchStatus(${p.id}, 'merged')">Merged</button>
+                                    <button class="action-btn" onclick="updatePatchStatus(${p.id}, 'dismissed')">Dismiss</button>
+                                ` : ''}
+                            </td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -412,35 +474,43 @@
         `;
     }
 
+    async function updatePatchStatus(id, status) {
+        await fetch(`${API}/patches/${id}`, {
+            method: 'PATCH',
+            headers: headers(),
+            body: JSON.stringify({ status }),
+        });
+        loadPatches();
+        loadStats();
+    }
+
     async function registerRepo() {
-    const url = document.getElementById('repo-url').value.trim();
-    const apiName = document.getElementById('api-name').value;
-    const msg = document.getElementById('register-msg');
-    msg.className = 'msg';
-
-    if (!url) {
-        msg.textContent = 'Please enter a GitHub URL.';
-        msg.className = 'msg error';
-        return;
+        const url = document.getElementById('repo-url').value.trim();
+        const apiName = document.getElementById('api-name').value;
+        const msg = document.getElementById('register-msg');
+        msg.className = 'msg';
+        if (!url) {
+            msg.textContent = 'Please enter a GitHub URL.';
+            msg.className = 'msg error';
+            return;
+        }
+        const res = await fetch(`${API}/repos`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ github_url: url, api_name: apiName }),
+        });
+        if (res.ok) {
+            msg.textContent = `Registered successfully. PatchPilot is now monitoring ${url}`;
+            msg.className = 'msg success';
+            document.getElementById('repo-url').value = '';
+            loadRepos();
+            loadStats();
+        } else {
+            const data = await res.json();
+            msg.textContent = `Error: ${data.detail}`;
+            msg.className = 'msg error';
+        }
     }
-
-    const res = await fetch(`${API}/repos`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ github_url: url, api_name: apiName }),
-    });
-
-    if (res.ok) {
-        msg.textContent = `Registered successfully. PatchPilot is now monitoring ${url}`;
-        msg.className = 'msg success';
-        document.getElementById('repo-url').value = '';
-        loadRepos();
-    } else {
-        const data = await res.json();
-        msg.textContent = `Error: ${data.detail}`;
-        msg.className = 'msg error';
-    }
-}
 
     async function deactivateRepo(id) {
         if (!confirm('Stop monitoring this repo?')) return;
@@ -449,6 +519,57 @@
             headers: headers(),
         });
         loadRepos();
+        loadStats();
+    }
+
+    async function registerUser() {
+        const email = document.getElementById('reg-email').value.trim();
+        const password = document.getElementById('reg-password').value;
+        const msg = document.getElementById('reg-msg');
+        msg.className = 'msg';
+        const res = await fetch(`${API}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            localStorage.setItem('patchpilot_api_key', data.api_key);
+            document.getElementById('api-key').value = data.api_key;
+            msg.textContent = 'Account created! API key saved automatically.';
+            msg.className = 'msg success';
+            loadRepos();
+            loadPatches();
+            loadStats();
+        } else {
+            msg.textContent = `Error: ${data.detail}`;
+            msg.className = 'msg error';
+        }
+    }
+
+    async function loginUser() {
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value;
+        const msg = document.getElementById('login-msg');
+        msg.className = 'msg';
+        const res = await fetch(`${API}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            localStorage.setItem('patchpilot_api_key', data.api_key);
+            document.getElementById('api-key').value = data.api_key;
+            msg.textContent = `Logged in as ${data.email}. API key loaded.`;
+            msg.className = 'msg success';
+            loadRepos();
+            loadPatches();
+            loadStats();
+        } else {
+            msg.textContent = `Error: ${data.detail}`;
+            msg.className = 'msg error';
+        }
     }
 
     const savedKey = getKey();
@@ -456,55 +577,8 @@
         document.getElementById('api-key').value = savedKey;
         loadRepos();
         loadPatches();
+        loadStats();
     }
-
-    async function registerUser() {
-    const email = document.getElementById('reg-email').value.trim();
-    const password = document.getElementById('reg-password').value;
-    const msg = document.getElementById('reg-msg');
-    msg.className = 'msg';
-    const res = await fetch(`${API}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-        localStorage.setItem('patchpilot_api_key', data.api_key);
-        document.getElementById('api-key').value = data.api_key;
-        msg.textContent = 'Account created! API key saved automatically.';
-        msg.className = 'msg success';
-        loadRepos();
-        loadPatches();
-    } else {
-        msg.textContent = `Error: ${data.detail}`;
-        msg.className = 'msg error';
-    }
-}
-
-async function loginUser() {
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-    const msg = document.getElementById('login-msg');
-    msg.className = 'msg';
-    const res = await fetch(`${API}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-        localStorage.setItem('patchpilot_api_key', data.api_key);
-        document.getElementById('api-key').value = data.api_key;
-        msg.textContent = `Logged in as ${data.email}. API key loaded.`;
-        msg.className = 'msg success';
-        loadRepos();
-        loadPatches();
-    } else {
-        msg.textContent = `Error: ${data.detail}`;
-        msg.className = 'msg error';
-    }
-}
 </script>
 
 </body>

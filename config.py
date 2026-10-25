@@ -6,4 +6,4 @@ load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-DATABASE_URL = "sqlite:///./patchpilot.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/patchpilot_dev")

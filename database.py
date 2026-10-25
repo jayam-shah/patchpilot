@@ -16,7 +16,13 @@ from config import DATABASE_URL
 
 Base = declarative_base()
 
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+)
 
 SessionLocal = sessionmaker(bind=engine)
 

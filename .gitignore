@@ -3,4 +3,4 @@ venv/
 __pycache__/
 *.pyc
 patchpilot.db
-logs/
+logs/*.db

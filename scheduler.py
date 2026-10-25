@@ -1,14 +1,17 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from database import get_session, Repo
-from scraper.stripe_scraper import check_stripe_changelog
-from scanner.repo_scanner import run_scanner
+
+from database import Repo, get_session
+from logger import get_logger
 from patcher.ollama_patcher import run_patcher
 from pr_creator.github_pr import run_pr_creator
-from logger import get_logger
+from scanner.repo_scanner import run_scanner
+from scraper.stripe_scraper import check_stripe_changelog
+
 logger = get_logger(__name__)
 
 scheduler = AsyncIOScheduler()
+
 
 async def run_full_pipeline():
     logger.info("Starting scheduled run")
@@ -56,6 +59,7 @@ async def run_full_pipeline():
             logger.error("PR creation failed")
 
     logger.info("Run complete")
+
 
 def start_scheduler():
     scheduler.add_job(

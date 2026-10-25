@@ -1,7 +1,9 @@
 from github import Github, GithubException
+
 from config import GITHUB_TOKEN
-from database import get_session, Repo, Patch, ChangelogSnapshot
+from database import Patch, get_session
 from logger import get_logger
+
 logger = get_logger(__name__)
 
 STRIPE_PATTERNS = [
@@ -16,10 +18,12 @@ STRIPE_PATTERNS = [
 
 SCANNABLE_EXTENSIONS = [".py", ".js", ".ts", ".rb", ".go", ".java"]
 
+
 def get_github_client() -> Github:
     if not GITHUB_TOKEN:
         raise ValueError("GITHUB_TOKEN not set in .env file")
     return Github(GITHUB_TOKEN)
+
 
 def parse_repo_url(github_url: str) -> tuple[str, str]:
     parts = github_url.rstrip("/").split("/")
@@ -29,6 +33,7 @@ def parse_repo_url(github_url: str) -> tuple[str, str]:
     repo_name = parts[-1]
     return owner, repo_name
 
+
 def search_file_for_patterns(file_content: str, patterns: list[str]) -> list[str]:
     matched_patterns = []
     for pattern in patterns:
@@ -36,12 +41,12 @@ def search_file_for_patterns(file_content: str, patterns: list[str]) -> list[str
             matched_patterns.append(pattern)
     return matched_patterns
 
+
 def scan_repo(github_url: str) -> list[dict]:
     client = get_github_client()
     owner, repo_name = parse_repo_url(github_url)
 
     logger.info(f"Scanning {owner}/{repo_name}")
-
 
     try:
         repo = client.get_repo(f"{owner}/{repo_name}")
@@ -64,7 +69,8 @@ def scan_repo(github_url: str) -> list[dict]:
 
         try:
             file_content = file_obj.decoded_content.decode("utf-8")
-        except Exception:
+        except (UnicodeDecodeError, AttributeError) as e:
+            logger.debug(f"Skipping {file_obj.path}: {e}")
             continue
 
         matched = search_file_for_patterns(file_content, STRIPE_PATTERNS)
@@ -80,9 +86,11 @@ def scan_repo(github_url: str) -> list[dict]:
     logger.info(f"Done — {len(affected_files)} affected file(s) found")
     return affected_files
 
-def save_affected_files(repo_id: int, snapshot_id: int, affected_files: list[dict]) -> list[Patch]:
+
+def save_affected_files(
+    repo_id: int, snapshot_id: int, affected_files: list[dict]
+) -> list[Patch]:
     session = get_session()
-    patches = []
     try:
         for file_info in affected_files:
             patch = Patch(
@@ -94,11 +102,12 @@ def save_affected_files(repo_id: int, snapshot_id: int, affected_files: list[dic
             )
             session.add(patch)
         session.commit()
-        for patch in session.query(Patch).filter_by(repo_id=repo_id, status="pending").all():
-            patches.append(patch)
-        return patches
+        return list(
+            session.query(Patch).filter_by(repo_id=repo_id, status="pending").all()
+        )
     finally:
         session.close()
+
 
 def run_scanner(repo_db_id: int, github_url: str, snapshot_id: int) -> list[Patch]:
     affected_files = scan_repo(github_url)
@@ -110,4 +119,3 @@ def run_scanner(repo_db_id: int, github_url: str, snapshot_id: int) -> list[Patc
     patches = save_affected_files(repo_db_id, snapshot_id, affected_files)
     logger.info(f"Saved {len(patches)} patch record(s) to database")
     return patches
-

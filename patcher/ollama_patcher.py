@@ -1,11 +1,14 @@
 import httpx
-from database import get_session, Patch
+
 from config import OLLAMA_HOST
+from database import Patch, get_session
 from logger import get_logger
+
 logger = get_logger(__name__)
 
 OLLAMA_MODEL = "codellama:7b"
 OLLAMA_URL = f"{OLLAMA_HOST}/api/generate"
+
 
 def build_prompt(original_code: str, changelog_content: str, file_path: str) -> str:
     return f"""You are a Python code migration expert specializing in Stripe API upgrades.
@@ -30,6 +33,7 @@ Rules you must follow:
 
 Updated code:"""
 
+
 def clean_code_output(raw: str) -> str:
     lines = raw.strip().split("\n")
     if lines and lines[0].startswith("```"):
@@ -37,41 +41,33 @@ def clean_code_output(raw: str) -> str:
     if lines and lines[-1].startswith("```"):
         lines = lines[:-1]
     clean = "\n".join(lines).strip()
-    last_import = -1
-    for i, line in enumerate(clean.split("\n")):
-        stripped = line.strip()
-        if (stripped.startswith("import ")
-                or stripped.startswith("from ")
-                or stripped.startswith("def ")
-                or stripped.startswith("class ")
-                or stripped.startswith("if ")
-                or stripped.startswith("@")
-                or stripped.startswith("#")
-                or stripped == ""):
-            last_code_line = i
     code_lines = clean.split("\n")
     for i in range(len(code_lines) - 1, -1, -1):
         line = code_lines[i].strip()
         if line == "" or line.startswith("#"):
             continue
-        if not any([
-            line.endswith(":"),
-            line.endswith(","),
-            line.endswith(")"),
-            line.endswith("]"),
-            line.endswith("}"),
-            line.endswith("'"),
-            line.endswith('"'),
-            line.startswith("return "),
-            line.startswith("import "),
-            line.startswith("from "),
-        ]):
-            if len(line.split()) > 6 and not line.startswith(("def ", "class ", "if ", "elif ", "else", "for ", "while ", "with ", "try", "except")):
-                code_lines = code_lines[:i]
+        if not any(
+            [
+                line.endswith(":"),
+                line.endswith(","),
+                line.endswith(")"),
+                line.endswith("]"),
+                line.endswith("}"),
+                line.endswith("'"),
+                line.endswith('"'),
+                line.startswith("return "),
+                line.startswith("import "),
+                line.startswith("from "),
+            ]
+        ) and len(line.split()) > 6 and not line.startswith(
+            ("def ", "class ", "if ", "elif ", "else", "for ", "while ", "with ", "try", "except")
+        ):
+            code_lines = code_lines[:i]
         break
     return "\n".join(code_lines).strip()
 
-async def call_ollama(prompt: str) -> str:   # ← column 0, no indentation
+
+async def call_ollama(prompt: str) -> str:  # ← column 0, no indentation
     logger.info(f"Sending prompt to Ollama ({OLLAMA_MODEL})")
     async with httpx.AsyncClient(timeout=300.0) as client:
         response = await client.post(
@@ -84,12 +80,13 @@ async def call_ollama(prompt: str) -> str:   # ← column 0, no indentation
                     "temperature": 0.1,
                     "num_predict": 2048,
                     "num_ctx": 8192,
-                }
-            }
+                },
+            },
         )
         response.raise_for_status()
         data = response.json()
         return clean_code_output(data["response"])
+
 
 def save_patched_code(patch_id: int, patched_code: str) -> Patch:
     session = get_session()
@@ -105,6 +102,7 @@ def save_patched_code(patch_id: int, patched_code: str) -> Patch:
     finally:
         session.close()
 
+
 async def generate_patch(patch: Patch, changelog_content: str) -> Patch | None:
     logger.info(f"Processing {patch.file_path}")
     try:
@@ -113,7 +111,7 @@ async def generate_patch(patch: Patch, changelog_content: str) -> Patch | None:
         updated_patch = save_patched_code(patch.id, patched_code)
         logger.info(f"Fix saved for patch id={patch.id}")
         return updated_patch
-    except Exception as e:
+    except (httpx.HTTPError, ValueError, KeyError) as e:
         logger.error(f"Failed on patch id={patch.id}: {type(e).__name__}: {e}")
         return None
 

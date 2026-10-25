@@ -1,10 +1,15 @@
-import httpx
 import hashlib
+
+import httpx
+
 from logger import get_logger
+
 logger = get_logger(__name__)
+from datetime import UTC, datetime
+
 from bs4 import BeautifulSoup
-from datetime import datetime
-from database import get_session, ChangelogSnapshot
+
+from database import ChangelogSnapshot, get_session
 
 STRIPE_CHANGELOG_URL = "https://docs.stripe.com/upgrades"
 
@@ -12,23 +17,27 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 }
 
+
 async def fetch_page(url: str) -> str:
     async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True) as client:
         response = await client.get(url, timeout=30)
         response.raise_for_status()
         return response.text
 
+
 def parse_changelog(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
-    
+
     for tag in soup(["script", "style", "nav", "footer", "header"]):
         tag.decompose()
-    
+
     main = soup.find("main") or soup.find("body")
     return main.get_text(separator="\n", strip=True) if main else soup.get_text()
 
+
 def hash_content(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
 
 def get_last_snapshot(api_name: str) -> ChangelogSnapshot | None:
     session = get_session()
@@ -42,7 +51,10 @@ def get_last_snapshot(api_name: str) -> ChangelogSnapshot | None:
     finally:
         session.close()
 
-def save_snapshot(api_name: str, version: str, content_hash: str, raw_content: str) -> ChangelogSnapshot:
+
+def save_snapshot(
+    api_name: str, version: str, content_hash: str, raw_content: str
+) -> ChangelogSnapshot:
     session = get_session()
     try:
         snapshot = ChangelogSnapshot(
@@ -58,8 +70,9 @@ def save_snapshot(api_name: str, version: str, content_hash: str, raw_content: s
     finally:
         session.close()
 
+
 async def check_stripe_changelog() -> dict | None:
-    logger.info(f"Checking Stripe changelog at {datetime.utcnow()}")
+    logger.info(f"Checking Stripe changelog at {datetime.now(tz=UTC)}")
 
     html = await fetch_page(STRIPE_CHANGELOG_URL)
     content = parse_changelog(html)
@@ -71,7 +84,7 @@ async def check_stripe_changelog() -> dict | None:
         logger.info("No changes detected")
         return None
 
-    version = datetime.utcnow().strftime("%Y-%m-%d-%H%M%S")
+    version = datetime.now(tz=UTC).strftime("%Y-%m-%d-%H%M%S")
     snapshot = save_snapshot("stripe", version, current_hash, content)
 
     logger.info(f"Change detected — saved snapshot id={snapshot.id}")

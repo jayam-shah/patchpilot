@@ -1,10 +1,14 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from database import init_db, get_session, Repo, Patch
-from scheduler import start_scheduler, stop_scheduler
+
+from database import Patch, Repo, get_session, init_db
 from logger import get_logger
+from scheduler import start_scheduler, stop_scheduler
+
 logger = get_logger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,13 +48,12 @@ def register_repo(request: RepoRegisterRequest):
 
     session = get_session()
     try:
-        existing = session.query(Repo).filter_by(
-            owner=owner, repo_name=repo_name
-        ).first()
+        existing = (
+            session.query(Repo).filter_by(owner=owner, repo_name=repo_name).first()
+        )
         if existing:
             raise HTTPException(
-                status_code=409,
-                detail=f"Repo {owner}/{repo_name} already registered"
+                status_code=409, detail=f"Repo {owner}/{repo_name} already registered"
             )
         repo = Repo(
             github_url=request.github_url,

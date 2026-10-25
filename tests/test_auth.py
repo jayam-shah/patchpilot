@@ -1,8 +1,4 @@
-import os
-
 from fastapi.testclient import TestClient
-
-os.environ.setdefault("API_KEY", "test-key")
 
 from main import app
 
@@ -25,5 +21,5 @@ def test_repos_wrong_key():
 
 
 def test_repos_correct_key():
-    response = client.get("/repos", headers={"X-API-Key": "test-key"})
+    response = client.get("/repos", headers={"X-API-Key": "test-key-for-ci"})
     assert response.status_code == 200

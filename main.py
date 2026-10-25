@@ -95,7 +95,7 @@ def login_user(request: Request, body: UserLoginRequest):
 def register_repo(
     request: Request,
     body: RepoRegisterRequest,
-    current_user: User = Depends(verify_api_key),
+    current_user: User = Depends(verify_api_key),  # noqa: B008
 ):
     parts = body.github_url.rstrip("/").split("/")
     if len(parts) < 2:
@@ -138,7 +138,10 @@ def register_repo(
 
 @app.get("/repos")
 @limiter.limit("30/minute")
-def list_repos(request: Request, current_user: User = Depends(verify_api_key)):
+def list_repos(
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
     session = get_session()
     try:
         query = session.query(Repo).filter_by(is_active=True)
@@ -161,10 +164,15 @@ def list_repos(request: Request, current_user: User = Depends(verify_api_key)):
 
 @app.get("/patches")
 @limiter.limit("30/minute")
-def list_patches(request: Request, current_user: User = Depends(verify_api_key)):
+def list_patches(
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
     session = get_session()
     try:
-        patches = session.query(Patch).order_by(Patch.created_at.desc()).limit(50).all()
+        patches = (
+            session.query(Patch).order_by(Patch.created_at.desc()).limit(50).all()
+        )
         return [
             {
                 "id": p.id,
@@ -185,7 +193,7 @@ def list_patches(request: Request, current_user: User = Depends(verify_api_key))
 def deactivate_repo(
     repo_id: int,
     request: Request,
-    current_user: User = Depends(verify_api_key),
+    current_user: User = Depends(verify_api_key),  # noqa: B008
 ):
     session = get_session()
     try:

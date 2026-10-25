@@ -206,6 +206,12 @@ def deactivate_repo(
 
 
 @app.get("/", response_class=HTMLResponse)
+def landing():
+    with open("templates/landing.html") as f:
+        return f.read()
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
 def dashboard():
     with open("templates/index.html") as f:
         return f.read()

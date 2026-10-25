@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from auth import verify_api_key
@@ -129,3 +130,9 @@ def deactivate_repo(repo_id: int, _: str = Depends(verify_api_key)):
         return {"message": f"Repo {repo_id} deactivated"}
     finally:
         session.close()
+
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+    with open("templates/index.html") as f:
+        return f.read()

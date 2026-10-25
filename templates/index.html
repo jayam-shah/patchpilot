@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatchPilot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        header {
+            border-bottom: 1px solid #1e2533;
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        header span {
+            font-size: 12px;
+            background: #1a3a5c;
+            color: #60a5fa;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .auth-bar {
+            background: #1a1f2e;
+            border: 1px solid #1e2533;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 32px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .auth-bar label {
+            font-size: 13px;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+
+        .auth-bar input {
+            flex: 1;
+            background: #0f1117;
+            border: 1px solid #2d3748;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #e2e8f0;
+            font-size: 13px;
+            font-family: monospace;
+        }
+
+        .auth-bar input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .auth-bar button {
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .auth-bar button:hover { background: #2563eb; }
+
+        section {
+            margin-bottom: 40px;
+        }
+
+        section h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+
+        .register-form {
+            background: #1a1f2e;
+            border: 1px solid #1e2533;
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .register-form input {
+            flex: 1;
+            background: #0f1117;
+            border: 1px solid #2d3748;
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: #e2e8f0;
+            font-size: 14px;
+        }
+
+        .register-form input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .register-form input::placeholder { color: #4a5568; }
+
+        .register-form button {
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .register-form button:hover { background: #2563eb; }
+
+        .msg {
+            margin-top: 12px;
+            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .msg.success { background: #0d2d1a; color: #4ade80; display: block; }
+        .msg.error   { background: #2d0d0d; color: #f87171; display: block; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 14px;
+            color: #64748b;
+            font-weight: 500;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid #1e2533;
+        }
+
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #1a1f2e;
+            color: #cbd5e1;
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .badge.active   { background: #0d2d1a; color: #4ade80; }
+        .badge.pending  { background: #1a1a0d; color: #facc15; }
+        .badge.patched  { background: #0d1a2d; color: #60a5fa; }
+        .badge.pr_opened{ background: #1a0d2d; color: #c084fc; }
+
+        .pr-link {
+            color: #60a5fa;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .pr-link:hover { text-decoration: underline; }
+
+        .deactivate-btn {
+            background: none;
+            border: 1px solid #2d3748;
+            color: #94a3b8;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .deactivate-btn:hover {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .empty {
+            color: #4a5568;
+            font-size: 14px;
+            padding: 20px 0;
+        }
+
+        .refresh-btn {
+            background: none;
+            border: 1px solid #2d3748;
+            color: #94a3b8;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 12px;
+        }
+
+        .refresh-btn:hover { border-color: #4a5568; color: #e2e8f0; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>PatchPilot</h1>
+    <span>v0.1.0</span>
+</header>
+
+<main>
+
+    <div class="auth-bar">
+        <label>API Key</label>
+        <input type="password" id="api-key" placeholder="Enter your API key" />
+        <button onclick="saveKey()">Save</button>
+    </div>
+
+    <section>
+        <h2>Register a repo</h2>
+        <div class="register-form">
+            <input type="text" id="repo-url" placeholder="https://github.com/your-org/your-repo" />
+            <button onclick="registerRepo()">Monitor</button>
+        </div>
+        <div class="msg" id="register-msg"></div>
+    </section>
+
+    <section>
+        <h2>
+            Monitored repos
+            <button class="refresh-btn" onclick="loadRepos()">Refresh</button>
+        </h2>
+        <div id="repos-container">
+            <p class="empty">Enter your API key above to load repos.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>
+            Patch history
+            <button class="refresh-btn" onclick="loadPatches()">Refresh</button>
+        </h2>
+        <div id="patches-container">
+            <p class="empty">Enter your API key above to load patches.</p>
+        </div>
+    </section>
+
+</main>
+
+<script>
+    const API = '';
+
+    function getKey() {
+        return localStorage.getItem('patchpilot_api_key') || '';
+    }
+
+    function saveKey() {
+        const key = document.getElementById('api-key').value.trim();
+        if (!key) return;
+        localStorage.setItem('patchpilot_api_key', key);
+        loadRepos();
+        loadPatches();
+    }
+
+    function headers() {
+        return {
+            'Content-Type': 'application/json',
+            'X-API-Key': getKey(),
+        };
+    }
+
+    async function loadRepos() {
+        const res = await fetch(`${API}/repos`, { headers: headers() });
+        const container = document.getElementById('repos-container');
+        if (!res.ok) {
+            container.innerHTML = `<p class="empty">Invalid API key or server error (${res.status}).</p>`;
+            return;
+        }
+        const repos = await res.json();
+        if (repos.length === 0) {
+            container.innerHTML = '<p class="empty">No repos registered yet.</p>';
+            return;
+        }
+        container.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Repository</th>
+                        <th>API</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${repos.map(r => `
+                        <tr>
+                            <td>${r.github_url}</td>
+                            <td>${r.api_name}</td>
+                            <td><span class="badge active">active</span></td>
+                            <td>
+                                <button class="deactivate-btn" onclick="deactivateRepo(${r.id})">
+                                    Remove
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    async function loadPatches() {
+        const res = await fetch(`${API}/patches`, { headers: headers() });
+        const container = document.getElementById('patches-container');
+        if (!res.ok) {
+            container.innerHTML = `<p class="empty">Invalid API key or server error (${res.status}).</p>`;
+            return;
+        }
+        const patches = await res.json();
+        if (patches.length === 0) {
+            container.innerHTML = '<p class="empty">No patches yet.</p>';
+            return;
+        }
+        container.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Status</th>
+                        <th>PR</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${patches.map(p => `
+                        <tr>
+                            <td>${p.file_path}</td>
+                            <td><span class="badge ${p.status}">${p.status}</span></td>
+                            <td>
+                                ${p.pr_url
+                                    ? `<a class="pr-link" href="${p.pr_url}" target="_blank">View PR →</a>`
+                                    : '—'}
+                            </td>
+                            <td>${p.created_at.split('T')[0]}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    async function registerRepo() {
+        const url = document.getElementById('repo-url').value.trim();
+        const msg = document.getElementById('register-msg');
+        msg.className = 'msg';
+
+        if (!url) {
+            msg.textContent = 'Please enter a GitHub URL.';
+            msg.className = 'msg error';
+            return;
+        }
+
+        const res = await fetch(`${API}/repos`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ github_url: url, api_name: 'stripe' }),
+        });
+
+        if (res.ok) {
+            msg.textContent = `Registered successfully. PatchPilot is now monitoring ${url}`;
+            msg.className = 'msg success';
+            document.getElementById('repo-url').value = '';
+            loadRepos();
+        } else {
+            const data = await res.json();
+            msg.textContent = `Error: ${data.detail}`;
+            msg.className = 'msg error';
+        }
+    }
+
+    async function deactivateRepo(id) {
+        if (!confirm('Stop monitoring this repo?')) return;
+        await fetch(`${API}/repos/${id}`, {
+            method: 'DELETE',
+            headers: headers(),
+        });
+        loadRepos();
+    }
+
+    const savedKey = getKey();
+    if (savedKey) {
+        document.getElementById('api-key').value = savedKey;
+        loadRepos();
+        loadPatches();
+    }
+</script>
+
+</body>
+</html>

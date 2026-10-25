@@ -1,4 +1,5 @@
 import pytest
+
 from scanner.repo_scanner import parse_repo_url, search_file_for_patterns
 
 

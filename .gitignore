@@ -2,5 +2,7 @@ venv/
 .env
 __pycache__/
 *.pyc
-patchpilot.db
-logs/*.db
+*.db
+logs/
+.pytest_cache/
+.ruff_cache/

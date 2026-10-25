@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from auth import verify_api_key
 from database import Patch, Repo, get_session, init_db
@@ -10,6 +13,8 @@ from logger import get_logger
 from scheduler import start_scheduler, stop_scheduler
 
 logger = get_logger(__name__)
+
+limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -29,6 +34,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 class RepoRegisterRequest(BaseModel):
     github_url: str
@@ -36,13 +44,19 @@ class RepoRegisterRequest(BaseModel):
 
 
 @app.get("/health")
-def health():
+@limiter.limit("60/minute")
+def health(request: Request):
     return {"status": "ok", "version": "0.1.0"}
 
 
 @app.post("/repos", status_code=201)
-def register_repo(request: RepoRegisterRequest, _: str = Depends(verify_api_key)):
-    parts = request.github_url.rstrip("/").split("/")
+@limiter.limit("10/minute")
+def register_repo(
+    request: Request,
+    body: RepoRegisterRequest,
+    _: str = Depends(verify_api_key),
+):
+    parts = body.github_url.rstrip("/").split("/")
     if len(parts) < 2:
         raise HTTPException(status_code=400, detail="Invalid GitHub URL")
     owner = parts[-2]
@@ -59,10 +73,10 @@ def register_repo(request: RepoRegisterRequest, _: str = Depends(verify_api_key)
                 detail=f"Repo {owner}/{repo_name} already registered",
             )
         repo = Repo(
-            github_url=request.github_url,
+            github_url=body.github_url,
             owner=owner,
             repo_name=repo_name,
-            api_name=request.api_name,
+            api_name=body.api_name,
         )
         session.add(repo)
         session.commit()
@@ -80,7 +94,8 @@ def register_repo(request: RepoRegisterRequest, _: str = Depends(verify_api_key)
 
 
 @app.get("/repos")
-def list_repos(_: str = Depends(verify_api_key)):
+@limiter.limit("30/minute")
+def list_repos(request: Request, _: str = Depends(verify_api_key)):
     session = get_session()
     try:
         repos = session.query(Repo).filter_by(is_active=True).all()
@@ -99,7 +114,8 @@ def list_repos(_: str = Depends(verify_api_key)):
 
 
 @app.get("/patches")
-def list_patches(_: str = Depends(verify_api_key)):
+@limiter.limit("30/minute")
+def list_patches(request: Request, _: str = Depends(verify_api_key)):
     session = get_session()
     try:
         patches = session.query(Patch).order_by(Patch.created_at.desc()).limit(50).all()
@@ -119,7 +135,8 @@ def list_patches(_: str = Depends(verify_api_key)):
 
 
 @app.delete("/repos/{repo_id}")
-def deactivate_repo(repo_id: int, _: str = Depends(verify_api_key)):
+@limiter.limit("10/minute")
+def deactivate_repo(repo_id: int, request: Request, _: str = Depends(verify_api_key)):
     session = get_session()
     try:
         repo = session.query(Repo).filter_by(id=repo_id).first()

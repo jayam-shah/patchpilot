@@ -7,8 +7,13 @@ from logger import get_logger
 from patcher.ollama_patcher import run_patcher
 from pr_creator.github_pr import run_pr_creator
 from scanner.repo_scanner import run_scanner
+from scraper.anthropic_scraper import check_anthropic_changelog
+from scraper.github_scraper import check_github_changelog
 from scraper.openai_scraper import check_openai_changelog
 from scraper.plaid_scraper import check_plaid_changelog
+from scraper.sendgrid_scraper import check_sendgrid_changelog
+from scraper.shopify_scraper import check_shopify_changelog
+from scraper.slack_scraper import check_slack_changelog
 from scraper.stripe_scraper import check_stripe_changelog
 from scraper.twilio_scraper import check_twilio_changelog
 
@@ -21,6 +26,11 @@ SCRAPERS = {
     "twilio": check_twilio_changelog,
     "openai": check_openai_changelog,
     "plaid": check_plaid_changelog,
+    "sendgrid": check_sendgrid_changelog,
+    "slack": check_slack_changelog,
+    "github": check_github_changelog,
+    "anthropic": check_anthropic_changelog,
+    "shopify": check_shopify_changelog,
 }
 
 

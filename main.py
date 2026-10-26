@@ -148,32 +148,6 @@ def register_repo(
         session.close()
 
 
-@app.get("/repos")
-@limiter.limit("30/minute")
-def list_repos(
-    request: Request,
-    current_user: User = Depends(verify_api_key),  # noqa: B008
-):
-    session = get_session()
-    try:
-        query = session.query(Repo).filter_by(is_active=True)
-        if current_user:
-            query = query.filter_by(user_id=current_user.id)
-        repos = query.all()
-        return [
-            {
-                "id": r.id,
-                "github_url": r.github_url,
-                "owner": r.owner,
-                "repo_name": r.repo_name,
-                "api_name": r.api_name,
-            }
-            for r in repos
-        ]
-    finally:
-        session.close()
-
-
 @app.get("/patches")
 @limiter.limit("30/minute")
 def list_patches(

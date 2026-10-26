@@ -289,21 +289,38 @@ def get_activity(
         session.close()
 
 
-@app.delete("/repos/{repo_id}")
-@limiter.limit("10/minute")
-def deactivate_repo(
-    repo_id: int,
+@app.get("/repos")
+@limiter.limit("30/minute")
+def list_repos(
     request: Request,
     current_user: User = Depends(verify_api_key),  # noqa: B008
 ):
     session = get_session()
     try:
-        repo = session.query(Repo).filter_by(id=repo_id).first()
-        if not repo:
-            raise HTTPException(status_code=404, detail="Repo not found")
-        repo.is_active = False
-        session.commit()
-        return {"message": f"Repo {repo_id} deactivated"}
+        query = session.query(Repo).filter_by(is_active=True)
+        if current_user:
+            query = query.filter_by(user_id=current_user.id)
+        repos = query.all()
+
+        result = []
+        for r in repos:
+            patches = session.query(Patch).filter_by(repo_id=r.id).all()
+            last_pr = next(
+                (p.pr_url for p in reversed(patches) if p.pr_url),
+                None,
+            )
+            result.append(
+                {
+                    "id": r.id,
+                    "github_url": r.github_url,
+                    "owner": r.owner,
+                    "repo_name": r.repo_name,
+                    "api_name": r.api_name,
+                    "patch_count": len(patches),
+                    "last_pr_url": last_pr,
+                }
+            )
+        return result
     finally:
         session.close()
 

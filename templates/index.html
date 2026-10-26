@@ -516,31 +516,39 @@
             return;
         }
         container.innerHTML = `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Repository</th>
-                        <th>API</th>
-                        <th>Status</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${repos.map(r => `
-                        <tr>
-                            <td><a href="${r.github_url}" target="_blank" style="color:#60a5fa; text-decoration:none;">${r.github_url}</a></td>
-                            <td><span style="text-transform:capitalize;">${r.api_name}</span></td>
-                            <td><span class="badge active">active</span></td>
-                            <td>
-                                <button class="deactivate-btn" onclick="deactivateRepo(${r.id})">
-                                    Remove
-                                </button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
+    <table>
+        <thead>
+            <tr>
+                <th>Repository</th>
+                <th>API</th>
+                <th>Patches</th>
+                <th>Last PR</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            ${repos.map(r => `
+                <tr>
+                    <td><a href="${r.github_url}" target="_blank" style="color:#60a5fa; text-decoration:none;">${r.github_url.replace('https://github.com/', '')}</a></td>
+                    <td><span style="text-transform:capitalize;">${r.api_name}</span></td>
+                    <td style="color:${r.patch_count > 0 ? '#60a5fa' : '#4a5568'}; font-weight:${r.patch_count > 0 ? '600' : '400'};">${r.patch_count}</td>
+                    <td>
+                        ${r.last_pr_url
+                            ? `<a class="pr-link" href="${r.last_pr_url}" target="_blank">View →</a>`
+                            : '<span style="color:#4a5568;">—</span>'}
+                    </td>
+                    <td><span class="badge active">active</span></td>
+                    <td>
+                        <button class="deactivate-btn" onclick="deactivateRepo(${r.id})">
+                            Remove
+                        </button>
+                    </td>
+                </tr>
+            `).join('')}
+        </tbody>
+    </table>
+`;
     }
 
     async function loadPatches() {

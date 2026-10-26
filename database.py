@@ -40,6 +40,17 @@ class User(Base):
     repos = relationship("Repo", back_populates="user")
 
 
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_type = Column(String, nullable=False)
+    api_name = Column(String)
+    repo_id = Column(Integer, ForeignKey("repos.id"), nullable=True)
+    message = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
+
+
 class Repo(Base):
     __tablename__ = "repos"
 

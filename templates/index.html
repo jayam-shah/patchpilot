@@ -246,6 +246,67 @@
         }
 
         .refresh-btn:hover { border-color: #4a5568; color: #e2e8f0; }
+
+        .timeline {
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #1e2533;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding: 0 0 20px 20px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 6px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #2d3748;
+            border: 2px solid #0f1117;
+        }
+
+        .timeline-item.pr_opened::before       { background: #c084fc; }
+        .timeline-item.changelog_detected::before { background: #facc15; }
+        .timeline-item.scan_complete::before   { background: #60a5fa; }
+        .timeline-item.no_change::before       { background: #2d3748; }
+
+        .timeline-msg {
+            font-size: 14px;
+            color: #cbd5e1;
+            margin-bottom: 4px;
+        }
+
+        .timeline-meta {
+            font-size: 12px;
+            color: #4a5568;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .api-pill {
+            background: #1a1f2e;
+            border: 1px solid #1e2533;
+            color: #64748b;
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            text-transform: capitalize;
+        }
     </style>
 </head>
 <body>
@@ -347,6 +408,16 @@
         </div>
     </section>
 
+    <section>
+        <h2>
+            Activity feed
+            <button class="refresh-btn" onclick="loadActivity()">Refresh</button>
+        </h2>
+        <div id="activity-container">
+            <p class="empty">Enter your API key above to load activity.</p>
+        </div>
+    </section>
+
 </main>
 
 <script>
@@ -363,6 +434,7 @@
         loadRepos();
         loadPatches();
         loadStats();
+        loadActivity();
     }
 
     function headers() {
@@ -385,6 +457,50 @@
                 month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
             });
         document.getElementById('stats-bar').style.display = 'grid';
+    }
+
+    async function loadActivity() {
+        const res = await fetch(`${API}/activity`, { headers: headers() });
+        const container = document.getElementById('activity-container');
+        if (!res.ok) {
+            container.innerHTML = `<p class="empty">Invalid API key or server error.</p>`;
+            return;
+        }
+        const events = await res.json();
+        if (events.length === 0) {
+            container.innerHTML = '<p class="empty">No activity yet. PatchPilot will log events here as it runs.</p>';
+            return;
+        }
+
+        const icons = {
+            pr_opened: '↗ PR opened',
+            changelog_detected: '⚡ Change detected',
+            scan_complete: '🔍 Scan complete',
+            no_change: '✓ No change',
+        };
+
+        const timeAgo = (dateStr) => {
+            const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+            if (diff < 60) return `${diff}s ago`;
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            return `${Math.floor(diff / 86400)}d ago`;
+        };
+
+        container.innerHTML = `
+            <div class="timeline">
+                ${events.map(e => `
+                    <div class="timeline-item ${e.event_type}">
+                        <div class="timeline-msg">${e.message}</div>
+                        <div class="timeline-meta">
+                            <span>${timeAgo(e.created_at)}</span>
+                            ${e.api_name ? `<span class="api-pill">${e.api_name}</span>` : ''}
+                            <span style="color:#2d3748;">${icons[e.event_type] || e.event_type}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
     }
 
     async function loadRepos() {
@@ -505,6 +621,7 @@
             document.getElementById('repo-url').value = '';
             loadRepos();
             loadStats();
+            loadActivity();
         } else {
             const data = await res.json();
             msg.textContent = `Error: ${data.detail}`;
@@ -520,6 +637,7 @@
         });
         loadRepos();
         loadStats();
+        loadActivity();
     }
 
     async function registerUser() {
@@ -541,6 +659,7 @@
             loadRepos();
             loadPatches();
             loadStats();
+            loadActivity();
         } else {
             msg.textContent = `Error: ${data.detail}`;
             msg.className = 'msg error';
@@ -566,6 +685,7 @@
             loadRepos();
             loadPatches();
             loadStats();
+            loadActivity();
         } else {
             msg.textContent = `Error: ${data.detail}`;
             msg.className = 'msg error';
@@ -578,6 +698,7 @@
         loadRepos();
         loadPatches();
         loadStats();
+        loadActivity();
     }
 </script>
 

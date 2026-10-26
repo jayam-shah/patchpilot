@@ -8,7 +8,15 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from auth import verify_api_key
-from database import ChangelogSnapshot, Patch, Repo, User, get_session, init_db
+from database import (
+    ActivityLog,
+    ChangelogSnapshot,
+    Patch,
+    Repo,
+    User,
+    get_session,
+    init_db,
+)
 from logger import get_logger
 from scheduler import start_scheduler, stop_scheduler
 
@@ -249,6 +257,34 @@ def get_stats(
             "last_checked": last_checked,
             "apis_watched": ["Stripe", "Twilio", "OpenAI"],
         }
+    finally:
+        session.close()
+
+
+@app.get("/activity")  # ← add from here
+@limiter.limit("30/minute")
+def get_activity(
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    session = get_session()
+    try:
+        events = (
+            session.query(ActivityLog)
+            .order_by(ActivityLog.created_at.desc())
+            .limit(30)
+            .all()
+        )
+        return [
+            {
+                "id": e.id,
+                "event_type": e.event_type,
+                "api_name": e.api_name,
+                "message": e.message,
+                "created_at": str(e.created_at),
+            }
+            for e in events
+        ]
     finally:
         session.close()
 

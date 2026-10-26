@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PatchPilot</title>
+    <title>PatchPilot — Dashboard</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -16,7 +16,7 @@
 
         header {
             border-bottom: 1px solid #1e2533;
-            padding: 20px 40px;
+            padding: 16px 40px;
             display: flex;
             align-items: center;
             gap: 12px;
@@ -25,20 +25,19 @@
         header a {
             font-size: 13px;
             color: #64748b;
-            margin-right: 4px;
             text-decoration: none;
         }
 
         header a:hover { color: #94a3b8; }
 
         header h1 {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
             color: #fff;
             display: inline;
         }
 
-        header span {
+        header span.ver {
             font-size: 12px;
             background: #1a3a5c;
             color: #60a5fa;
@@ -46,71 +45,195 @@
             border-radius: 4px;
         }
 
+        .user-pill {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        .plan-badge {
+            background: #1a3a5c;
+            color: #60a5fa;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: capitalize;
+        }
+
+        .plan-badge.pro { background: #1a0d2d; color: #c084fc; }
+        .plan-badge.enterprise { background: #0d2d1a; color: #4ade80; }
+
+        .logout-btn {
+            background: none;
+            border: 1px solid #2d3748;
+            color: #94a3b8;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .logout-btn:hover { border-color: #ef4444; color: #ef4444; }
+
         main {
-            max-width: 900px;
+            max-width: 860px;
             margin: 0 auto;
             padding: 40px 20px;
         }
 
-        .auth-bar {
-            background: #1a1f2e;
-            border: 1px solid #1e2533;
-            border-radius: 8px;
-            padding: 16px 20px;
-            margin-bottom: 32px;
-            display: flex;
-            gap: 12px;
-            align-items: center;
+        /* AUTH BLOCK */
+        .auth-block {
+            max-width: 440px;
+            margin: 0 auto;
         }
 
-        .auth-bar label {
+        .auth-block h2 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .auth-block .auth-sub {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 32px;
+        }
+
+        .auth-block .auth-sub a {
+            color: #60a5fa;
+            cursor: pointer;
+        }
+
+        .auth-block .auth-sub a:hover { text-decoration: underline; }
+
+        .auth-field {
+            margin-bottom: 16px;
+        }
+
+        .auth-field label {
+            display: block;
             font-size: 13px;
             color: #94a3b8;
-            white-space: nowrap;
+            margin-bottom: 6px;
         }
 
-        .auth-bar input {
-            flex: 1;
-            background: #0f1117;
+        .auth-field input {
+            width: 100%;
+            background: #1a1f2e;
             border: 1px solid #2d3748;
             border-radius: 6px;
-            padding: 8px 12px;
+            padding: 11px 14px;
             color: #e2e8f0;
-            font-size: 13px;
-            font-family: monospace;
+            font-size: 14px;
+            transition: border-color 0.15s;
         }
 
-        .auth-bar input:focus { outline: none; border-color: #3b82f6; }
+        .auth-field input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
 
-        .auth-bar button {
+        .auth-submit {
+            width: 100%;
             background: #3b82f6;
             color: #fff;
             border: none;
             border-radius: 6px;
-            padding: 8px 16px;
-            font-size: 13px;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: 500;
             cursor: pointer;
-            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.15s;
+            margin-top: 8px;
         }
 
-        .auth-bar button:hover { background: #2563eb; }
+        .auth-submit:hover { background: #2563eb; }
 
-        section { margin-bottom: 40px; }
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            color: #2d3748;
+            font-size: 12px;
+        }
 
-        section h2 {
-            font-size: 16px;
+        .auth-divider::before, .auth-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #1e2533;
+        }
+
+        .msg {
+            margin-top: 12px;
+            font-size: 13px;
+            padding: 10px 14px;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .msg.success { background: #0d2d1a; color: #4ade80; display: block; }
+        .msg.error   { background: #2d0d0d; color: #f87171; display: block; }
+
+        /* DASHBOARD */
+        #dashboard { display: none; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: #1a1f2e;
+            border: 1px solid #1e2533;
+            border-radius: 8px;
+            padding: 16px 20px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .stat-value {
+            font-size: 24px;
             font-weight: 600;
             color: #fff;
-            margin-bottom: 16px;
+        }
+
+        section { margin-bottom: 36px; }
+
+        section h2 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .register-form {
             background: #1a1f2e;
             border: 1px solid #1e2533;
             border-radius: 8px;
-            padding: 20px;
+            padding: 18px;
             display: flex;
-            gap: 12px;
+            gap: 10px;
         }
 
         .register-form input {
@@ -148,16 +271,16 @@
 
         .register-form button:hover { background: #2563eb; }
 
-        .msg {
-            margin-top: 12px;
+        .form-msg {
+            margin-top: 10px;
             font-size: 13px;
             padding: 8px 12px;
             border-radius: 6px;
             display: none;
         }
 
-        .msg.success { background: #0d2d1a; color: #4ade80; display: block; }
-        .msg.error   { background: #2d0d0d; color: #f87171; display: block; }
+        .form-msg.success { background: #0d2d1a; color: #4ade80; display: block; }
+        .form-msg.error   { background: #2d0d0d; color: #f87171; display: block; }
 
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
 
@@ -195,12 +318,7 @@
         .badge.merged    { background: #0d2d1a; color: #4ade80; }
         .badge.dismissed { background: #1a1a1a; color: #64748b; }
 
-        .pr-link {
-            color: #60a5fa;
-            text-decoration: none;
-            font-size: 12px;
-        }
-
+        .pr-link { color: #60a5fa; text-decoration: none; font-size: 12px; }
         .pr-link:hover { text-decoration: underline; }
 
         .deactivate-btn {
@@ -228,52 +346,35 @@
 
         .action-btn:hover { border-color: #4ade80; color: #4ade80; }
 
-        .empty {
-            color: #4a5568;
-            font-size: 14px;
-            padding: 20px 0;
-        }
-
         .refresh-btn {
             background: none;
             border: 1px solid #2d3748;
-            color: #94a3b8;
+            color: #64748b;
             border-radius: 6px;
-            padding: 6px 12px;
+            padding: 4px 10px;
             font-size: 12px;
             cursor: pointer;
-            margin-left: 12px;
         }
 
-        .refresh-btn:hover { border-color: #4a5568; color: #e2e8f0; }
+        .refresh-btn:hover { color: #e2e8f0; border-color: #4a5568; }
 
-        .timeline {
-            position: relative;
-            padding-left: 20px;
-        }
+        .empty { color: #4a5568; font-size: 14px; padding: 16px 0; }
 
+        .timeline { position: relative; padding-left: 20px; }
         .timeline::before {
             content: '';
             position: absolute;
-            left: 6px;
-            top: 0;
-            bottom: 0;
+            left: 6px; top: 0; bottom: 0;
             width: 1px;
             background: #1e2533;
         }
 
-        .timeline-item {
-            position: relative;
-            padding: 0 0 20px 20px;
-        }
-
+        .timeline-item { position: relative; padding: 0 0 20px 20px; }
         .timeline-item::before {
             content: '';
             position: absolute;
-            left: -8px;
-            top: 6px;
-            width: 8px;
-            height: 8px;
+            left: -8px; top: 6px;
+            width: 8px; height: 8px;
             border-radius: 50%;
             background: #2d3748;
             border: 2px solid #0f1117;
@@ -281,22 +382,12 @@
 
         .timeline-item.pr_opened::before       { background: #c084fc; }
         .timeline-item.changelog_detected::before { background: #facc15; }
+        .timeline-item.changelog_stable::before { background: #4ade80; }
         .timeline-item.scan_complete::before   { background: #60a5fa; }
         .timeline-item.no_change::before       { background: #2d3748; }
-        .timeline-item.changelog_stable::before { background: #4ade80; }
-        .timeline-msg {
-            font-size: 14px;
-            color: #cbd5e1;
-            margin-bottom: 4px;
-        }
 
-        .timeline-meta {
-            font-size: 12px;
-            color: #4a5568;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .timeline-msg { font-size: 14px; color: #cbd5e1; margin-bottom: 4px; }
+        .timeline-meta { font-size: 12px; color: #4a5568; display: flex; align-items: center; gap: 8px; }
 
         .api-pill {
             background: #1a1f2e;
@@ -307,6 +398,25 @@
             border-radius: 4px;
             text-transform: capitalize;
         }
+
+        .upgrade-banner {
+            background: #1a0d2d;
+            border: 1px solid #4c1d95;
+            border-radius: 8px;
+            padding: 14px 18px;
+            font-size: 13px;
+            color: #c084fc;
+            margin-bottom: 24px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .upgrade-banner a {
+            color: #a78bfa;
+            font-weight: 500;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -314,133 +424,127 @@
 <header>
     <a href="/">← Home</a>
     <h1>PatchPilot</h1>
-    <span>v0.1.0</span>
+    <span class="ver">v0.1.0</span>
+    <div class="user-pill" id="user-pill" style="display:none;">
+        <span id="user-email"></span>
+        <span class="plan-badge" id="user-plan-badge"></span>
+        <button class="logout-btn" onclick="logout()">Sign out</button>
+    </div>
 </header>
 
 <main>
 
-    <div id="stats-bar" style="display:none; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:28px;">
-        <div style="background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:16px 20px;">
-            <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Repos monitored</div>
-            <div id="stat-repos" style="font-size:24px; font-weight:600; color:#fff;">—</div>
+    <!-- AUTH SECTION -->
+    <div id="auth-section" class="auth-block">
+        <h2 id="auth-title">Sign in to PatchPilot</h2>
+        <p class="auth-sub" id="auth-sub">
+            Don't have an account?
+            <a onclick="toggleAuth()">Create one free</a>
+        </p>
+
+        <div class="auth-field">
+            <label>Email</label>
+            <input type="email" id="auth-email" placeholder="you@company.com" />
         </div>
-        <div style="background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:16px 20px;">
-            <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Patches generated</div>
-            <div id="stat-patches" style="font-size:24px; font-weight:600; color:#fff;">—</div>
+        <div class="auth-field">
+            <label>Password</label>
+            <input type="password" id="auth-password" placeholder="Password" />
         </div>
-        <div style="background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:16px 20px;">
-            <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">PRs opened</div>
-            <div id="stat-prs" style="font-size:24px; font-weight:600; color:#c084fc;">—</div>
-        </div>
-        <div style="background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:16px 20px;">
-            <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Last checked</div>
-            <div id="stat-last" style="font-size:13px; font-weight:500; color:#94a3b8; margin-top:4px;">—</div>
-        </div>
+
+        <button class="auth-submit" onclick="submitAuth()">
+            Continue →
+        </button>
+
+        <div class="msg" id="auth-msg"></div>
     </div>
 
-    <div class="auth-bar">
-        <label>API Key</label>
-        <input type="password" id="api-key" placeholder="Enter your API key" />
-        <button onclick="saveKey()">Save</button>
+    <!-- DASHBOARD SECTION -->
+    <div id="dashboard">
+
+        <div class="upgrade-banner" id="upgrade-banner">
+            <span>You're on the <strong>free plan</strong> — 1 repo, 3 APIs only.</span>
+            <a onclick="showUpgrade()">Upgrade to Pro →</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Repos monitored</div>
+                <div class="stat-value" id="stat-repos">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Patches generated</div>
+                <div class="stat-value" id="stat-patches">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">PRs opened</div>
+                <div class="stat-value" id="stat-prs" style="color:#c084fc;">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last checked</div>
+                <div class="stat-value" id="stat-last" style="font-size:13px; color:#94a3b8; margin-top:4px;">—</div>
+            </div>
+        </div>
+
+        <section>
+            <h2>Register a repo</h2>
+            <div class="register-form">
+                <input type="text" id="repo-url" placeholder="https://github.com/your-org/your-repo" />
+                <select id="api-name">
+                    <option value="stripe">Stripe</option>
+                    <option value="twilio">Twilio</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="plaid">Plaid</option>
+                    <option value="sendgrid">SendGrid</option>
+                    <option value="slack">Slack</option>
+                    <option value="github">GitHub API</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="shopify">Shopify</option>
+                </select>
+                <button onclick="registerRepo()">Monitor</button>
+            </div>
+            <div class="form-msg" id="register-msg"></div>
+        </section>
+
+        <section>
+            <h2>
+                Monitored repos
+                <button class="refresh-btn" onclick="loadRepos()">Refresh</button>
+            </h2>
+            <div id="repos-container">
+                <p class="empty">No repos registered yet.</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>
+                Patch history
+                <button class="refresh-btn" onclick="loadPatches()">Refresh</button>
+            </h2>
+            <div id="patches-container">
+                <p class="empty">No patches yet.</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>
+                Activity feed
+                <button class="refresh-btn" onclick="loadActivity()">Refresh</button>
+            </h2>
+            <div id="activity-container">
+                <p class="empty">No activity yet.</p>
+            </div>
+        </section>
+
     </div>
-
-    <section>
-        <h2>Account</h2>
-        <div style="display:flex; gap:16px; flex-wrap:wrap;">
-            <div style="flex:1; min-width:240px; background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:20px;">
-                <div style="font-size:13px; color:#94a3b8; margin-bottom:12px; font-weight:500;">Create account</div>
-                <input type="email" id="reg-email" placeholder="your@email.com"
-                    style="width:100%; background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:8px 12px; color:#e2e8f0; font-size:13px; margin-bottom:8px;" />
-                <input type="password" id="reg-password" placeholder="Password"
-                    style="width:100%; background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:8px 12px; color:#e2e8f0; font-size:13px; margin-bottom:8px;" />
-                <button onclick="registerUser()"
-                    style="width:100%; background:#3b82f6; color:#fff; border:none; border-radius:6px; padding:8px; font-size:13px; cursor:pointer;">
-                    Create account
-                </button>
-                <div class="msg" id="reg-msg"></div>
-            </div>
-            <div style="flex:1; min-width:240px; background:#1a1f2e; border:1px solid #1e2533; border-radius:8px; padding:20px;">
-                <div style="font-size:13px; color:#94a3b8; margin-bottom:12px; font-weight:500;">Login</div>
-                <input type="email" id="login-email" placeholder="your@email.com"
-                    style="width:100%; background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:8px 12px; color:#e2e8f0; font-size:13px; margin-bottom:8px;" />
-                <input type="password" id="login-password" placeholder="Password"
-                    style="width:100%; background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:8px 12px; color:#e2e8f0; font-size:13px; margin-bottom:8px;" />
-                <button onclick="loginUser()"
-                    style="width:100%; background:#3b82f6; color:#fff; border:none; border-radius:6px; padding:8px; font-size:13px; cursor:pointer;">
-                    Login
-                </button>
-                <div class="msg" id="login-msg"></div>
-            </div>
-        </div>
-    </section>
-
-    <section>
-        <h2>Register a repo</h2>
-        <div class="register-form">
-            <input type="text" id="repo-url" placeholder="https://github.com/your-org/your-repo" />
-            <select id="api-name">
-                <option value="stripe">Stripe</option>
-                <option value="twilio">Twilio</option>
-                <option value="openai">OpenAI</option>
-                <option value="plaid">Plaid</option>
-                <option value="sendgrid">SendGrid</option>
-                <option value="slack">Slack</option>
-                <option value="github">GitHub API</option>
-                <option value="anthropic">Anthropic</option>
-                <option value="shopify">Shopify</option>
-            </select>
-            <button onclick="registerRepo()">Monitor</button>
-        </div>
-        <div class="msg" id="register-msg"></div>
-    </section>
-
-    <section>
-        <h2>
-            Monitored repos
-            <button class="refresh-btn" onclick="loadRepos()">Refresh</button>
-        </h2>
-        <div id="repos-container">
-            <p class="empty">Enter your API key above to load repos.</p>
-        </div>
-    </section>
-
-    <section>
-        <h2>
-            Patch history
-            <button class="refresh-btn" onclick="loadPatches()">Refresh</button>
-        </h2>
-        <div id="patches-container">
-            <p class="empty">Enter your API key above to load patches.</p>
-        </div>
-    </section>
-
-    <section>
-        <h2>
-            Activity feed
-            <button class="refresh-btn" onclick="loadActivity()">Refresh</button>
-        </h2>
-        <div id="activity-container">
-            <p class="empty">Enter your API key above to load activity.</p>
-        </div>
-    </section>
 
 </main>
 
 <script>
     const API = '';
+    let isLoginMode = true;
 
     function getKey() {
         return localStorage.getItem('patchpilot_api_key') || '';
-    }
-
-    function saveKey() {
-        const key = document.getElementById('api-key').value.trim();
-        if (!key) return;
-        localStorage.setItem('patchpilot_api_key', key);
-        loadRepos();
-        loadPatches();
-        loadStats();
-        loadActivity();
     }
 
     function headers() {
@@ -448,6 +552,86 @@
             'Content-Type': 'application/json',
             'X-API-Key': getKey(),
         };
+    }
+
+    function toggleAuth() {
+        isLoginMode = !isLoginMode;
+        document.getElementById('auth-title').textContent = isLoginMode
+            ? 'Sign in to PatchPilot'
+            : 'Create your account';
+        document.getElementById('auth-sub').innerHTML = isLoginMode
+            ? `Don't have an account? <a onclick="toggleAuth()">Create one free</a>`
+            : `Already have an account? <a onclick="toggleAuth()">Sign in</a>`;
+        document.getElementById('auth-msg').className = 'msg';
+        document.getElementById('auth-email').value = '';
+        document.getElementById('auth-password').value = '';
+    }
+
+    async function submitAuth() {
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const msg = document.getElementById('auth-msg');
+        msg.className = 'msg';
+
+        if (!email || !password) {
+            msg.textContent = 'Please enter your email and password.';
+            msg.className = 'msg error';
+            return;
+        }
+
+        const endpoint = isLoginMode ? '/auth/login' : '/auth/register';
+        const res = await fetch(`${API}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            localStorage.setItem('patchpilot_api_key', data.api_key);
+            await showDashboard(data.email);
+        } else {
+            msg.textContent = `Error: ${data.detail}`;
+            msg.className = 'msg error';
+        }
+    }
+
+    async function showDashboard(email) {
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+
+        const meRes = await fetch(`${API}/me`, { headers: headers() });
+        if (meRes.ok) {
+            const me = await meRes.json();
+            const pill = document.getElementById('user-plan-badge');
+            pill.textContent = me.plan;
+            pill.className = `plan-badge ${me.plan}`;
+            document.getElementById('user-email').textContent = me.email || email;
+            document.getElementById('user-pill').style.display = 'flex';
+
+            if (me.plan === 'free') {
+                document.getElementById('upgrade-banner').style.display = 'flex';
+            }
+        }
+
+        loadStats();
+        loadRepos();
+        loadPatches();
+        loadActivity();
+    }
+
+    function logout() {
+        localStorage.removeItem('patchpilot_api_key');
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('auth-section').style.display = 'block';
+        document.getElementById('user-pill').style.display = 'none';
+        document.getElementById('upgrade-banner').style.display = 'none';
+        document.getElementById('auth-email').value = '';
+        document.getElementById('auth-password').value = '';
+    }
+
+    function showUpgrade() {
+        alert('Upgrade to Pro — contact jayam@patchpilot.dev or use the admin API to get access.');
     }
 
     async function loadStats() {
@@ -462,22 +646,66 @@
             last === 'Never' ? 'Never' : new Date(last).toLocaleDateString('en-US', {
                 month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
             });
-        document.getElementById('stats-bar').style.display = 'grid';
+    }
+
+    async function loadRepos() {
+        const res = await fetch(`${API}/repos`, { headers: headers() });
+        const container = document.getElementById('repos-container');
+        if (!res.ok) { container.innerHTML = `<p class="empty">Error loading repos.</p>`; return; }
+        const repos = await res.json();
+        if (repos.length === 0) { container.innerHTML = '<p class="empty">No repos registered yet.</p>'; return; }
+        container.innerHTML = `
+            <table>
+                <thead><tr>
+                    <th>Repository</th><th>API</th><th>Patches</th><th>Last PR</th><th>Status</th><th></th>
+                </tr></thead>
+                <tbody>
+                    ${repos.map(r => `
+                        <tr>
+                            <td><a href="${r.github_url}" target="_blank" style="color:#60a5fa; text-decoration:none;">${r.github_url.replace('https://github.com/', '')}</a></td>
+                            <td style="text-transform:capitalize;">${r.api_name}</td>
+                            <td style="color:${r.patch_count > 0 ? '#60a5fa' : '#4a5568'}; font-weight:${r.patch_count > 0 ? '600' : '400'};">${r.patch_count}</td>
+                            <td>${r.last_pr_url ? `<a class="pr-link" href="${r.last_pr_url}" target="_blank">View →</a>` : '<span style="color:#4a5568;">—</span>'}</td>
+                            <td><span class="badge active">active</span></td>
+                            <td><button class="deactivate-btn" onclick="deactivateRepo(${r.id})">Remove</button></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>`;
+    }
+
+    async function loadPatches() {
+        const res = await fetch(`${API}/patches`, { headers: headers() });
+        const container = document.getElementById('patches-container');
+        if (!res.ok) { container.innerHTML = `<p class="empty">Error loading patches.</p>`; return; }
+        const patches = await res.json();
+        if (patches.length === 0) { container.innerHTML = '<p class="empty">No patches yet.</p>'; return; }
+        container.innerHTML = `
+            <table>
+                <thead><tr><th>File</th><th>Status</th><th>PR</th><th>Date</th><th></th></tr></thead>
+                <tbody>
+                    ${patches.map(p => `
+                        <tr>
+                            <td style="font-family:monospace; font-size:13px;">${p.file_path}</td>
+                            <td><span class="badge ${p.status}">${p.status.replace('_', ' ')}</span></td>
+                            <td>${p.pr_url ? `<a class="pr-link" href="${p.pr_url}" target="_blank">View PR →</a>` : '—'}</td>
+                            <td style="color:#64748b; font-size:13px;">${p.created_at.split(' ')[0]}</td>
+                            <td>${p.status === 'pr_opened' ? `
+                                <button class="action-btn" onclick="updatePatchStatus(${p.id}, 'merged')">Merged</button>
+                                <button class="action-btn" onclick="updatePatchStatus(${p.id}, 'dismissed')">Dismiss</button>
+                            ` : ''}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>`;
     }
 
     async function loadActivity() {
         const res = await fetch(`${API}/activity`, { headers: headers() });
         const container = document.getElementById('activity-container');
-        if (!res.ok) {
-            container.innerHTML = `<p class="empty">Invalid API key or server error.</p>`;
-            return;
-        }
+        if (!res.ok) { container.innerHTML = `<p class="empty">Error loading activity.</p>`; return; }
         const events = await res.json();
-        if (events.length === 0) {
-            container.innerHTML = '<p class="empty">No activity yet. PatchPilot will log events here as it runs.</p>';
-            return;
-        }
-
+        if (events.length === 0) { container.innerHTML = '<p class="empty">No activity yet. PatchPilot will log events here as it runs.</p>'; return; }
         const icons = {
             pr_opened: '↗ PR opened',
             changelog_detected: '⚡ Change detected',
@@ -485,124 +713,53 @@
             scan_complete: '🔍 Scan complete',
             no_change: '✓ No change',
         };
-
-        const timeAgo = (dateStr) => {
-            const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+        const timeAgo = (d) => {
+            const diff = Math.floor((Date.now() - new Date(d)) / 1000);
             if (diff < 60) return `${diff}s ago`;
-            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-            return `${Math.floor(diff / 86400)}d ago`;
+            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+            return `${Math.floor(diff/86400)}d ago`;
         };
-
-        container.innerHTML = `
-            <div class="timeline">
-                ${events.map(e => `
-                    <div class="timeline-item ${e.event_type}">
-                        <div class="timeline-msg">${e.message}</div>
-                        <div class="timeline-meta">
-                            <span>${timeAgo(e.created_at)}</span>
-                            ${e.api_name ? `<span class="api-pill">${e.api_name}</span>` : ''}
-                            <span style="color:#2d3748;">${icons[e.event_type] || e.event_type}</span>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        container.innerHTML = `<div class="timeline">${events.map(e => `
+            <div class="timeline-item ${e.event_type}">
+                <div class="timeline-msg">${e.message}</div>
+                <div class="timeline-meta">
+                    <span>${timeAgo(e.created_at)}</span>
+                    ${e.api_name ? `<span class="api-pill">${e.api_name}</span>` : ''}
+                    <span style="color:#2d3748;">${icons[e.event_type] || e.event_type}</span>
+                </div>
+            </div>`).join('')}</div>`;
     }
 
-    async function loadRepos() {
-        const res = await fetch(`${API}/repos`, { headers: headers() });
-        const container = document.getElementById('repos-container');
-        if (!res.ok) {
-            container.innerHTML = `<p class="empty">Invalid API key or server error (${res.status}).</p>`;
-            return;
+    async function registerRepo() {
+        const url = document.getElementById('repo-url').value.trim();
+        const apiName = document.getElementById('api-name').value;
+        const msg = document.getElementById('register-msg');
+        msg.className = 'form-msg';
+        if (!url) { msg.textContent = 'Please enter a GitHub URL.'; msg.className = 'form-msg error'; return; }
+        const res = await fetch(`${API}/repos`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ github_url: url, api_name: apiName }),
+        });
+        if (res.ok) {
+            msg.textContent = `Monitoring ${url}`;
+            msg.className = 'form-msg success';
+            document.getElementById('repo-url').value = '';
+            loadRepos();
+            loadStats();
+        } else {
+            const data = await res.json();
+            msg.textContent = `Error: ${data.detail}`;
+            msg.className = 'form-msg error';
         }
-        const repos = await res.json();
-        if (repos.length === 0) {
-            container.innerHTML = '<p class="empty">No repos registered yet.</p>';
-            return;
-        }
-        container.innerHTML = `
-    <table>
-        <thead>
-            <tr>
-                <th>Repository</th>
-                <th>API</th>
-                <th>Patches</th>
-                <th>Last PR</th>
-                <th>Status</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            ${repos.map(r => `
-                <tr>
-                    <td><a href="${r.github_url}" target="_blank" style="color:#60a5fa; text-decoration:none;">${r.github_url.replace('https://github.com/', '')}</a></td>
-                    <td><span style="text-transform:capitalize;">${r.api_name}</span></td>
-                    <td style="color:${r.patch_count > 0 ? '#60a5fa' : '#4a5568'}; font-weight:${r.patch_count > 0 ? '600' : '400'};">${r.patch_count}</td>
-                    <td>
-                        ${r.last_pr_url
-                            ? `<a class="pr-link" href="${r.last_pr_url}" target="_blank">View →</a>`
-                            : '<span style="color:#4a5568;">—</span>'}
-                    </td>
-                    <td><span class="badge active">active</span></td>
-                    <td>
-                        <button class="deactivate-btn" onclick="deactivateRepo(${r.id})">
-                            Remove
-                        </button>
-                    </td>
-                </tr>
-            `).join('')}
-        </tbody>
-    </table>
-`;
     }
 
-    async function loadPatches() {
-        const res = await fetch(`${API}/patches`, { headers: headers() });
-        const container = document.getElementById('patches-container');
-        if (!res.ok) {
-            container.innerHTML = `<p class="empty">Invalid API key or server error (${res.status}).</p>`;
-            return;
-        }
-        const patches = await res.json();
-        if (patches.length === 0) {
-            container.innerHTML = '<p class="empty">No patches yet.</p>';
-            return;
-        }
-        container.innerHTML = `
-            <table>
-                <thead>
-                    <tr>
-                        <th>File</th>
-                        <th>Status</th>
-                        <th>PR</th>
-                        <th>Date</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${patches.map(p => `
-                        <tr>
-                            <td style="font-family:monospace; font-size:13px;">${p.file_path}</td>
-                            <td><span class="badge ${p.status}">${p.status.replace('_', ' ')}</span></td>
-                            <td>
-                                ${p.pr_url
-                                    ? `<a class="pr-link" href="${p.pr_url}" target="_blank">View PR →</a>`
-                                    : '—'}
-                            </td>
-                            <td style="color:#64748b; font-size:13px;">${p.created_at.split(' ')[0]}</td>
-                            <td>
-                                ${p.status === 'pr_opened' ? `
-                                    <button class="action-btn" onclick="updatePatchStatus(${p.id}, 'merged')">Merged</button>
-                                    <button class="action-btn" onclick="updatePatchStatus(${p.id}, 'dismissed')">Dismiss</button>
-                                ` : ''}
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
+    async function deactivateRepo(id) {
+        if (!confirm('Stop monitoring this repo?')) return;
+        await fetch(`${API}/repos/${id}`, { method: 'DELETE', headers: headers() });
+        loadRepos();
+        loadStats();
     }
 
     async function updatePatchStatus(id, status) {
@@ -615,105 +772,9 @@
         loadStats();
     }
 
-    async function registerRepo() {
-        const url = document.getElementById('repo-url').value.trim();
-        const apiName = document.getElementById('api-name').value;
-        const msg = document.getElementById('register-msg');
-        msg.className = 'msg';
-        if (!url) {
-            msg.textContent = 'Please enter a GitHub URL.';
-            msg.className = 'msg error';
-            return;
-        }
-        const res = await fetch(`${API}/repos`, {
-            method: 'POST',
-            headers: headers(),
-            body: JSON.stringify({ github_url: url, api_name: apiName }),
-        });
-        if (res.ok) {
-            msg.textContent = `Registered successfully. PatchPilot is now monitoring ${url}`;
-            msg.className = 'msg success';
-            document.getElementById('repo-url').value = '';
-            loadRepos();
-            loadStats();
-            loadActivity();
-        } else {
-            const data = await res.json();
-            msg.textContent = `Error: ${data.detail}`;
-            msg.className = 'msg error';
-        }
-    }
-
-    async function deactivateRepo(id) {
-        if (!confirm('Stop monitoring this repo?')) return;
-        await fetch(`${API}/repos/${id}`, {
-            method: 'DELETE',
-            headers: headers(),
-        });
-        loadRepos();
-        loadStats();
-        loadActivity();
-    }
-
-    async function registerUser() {
-        const email = document.getElementById('reg-email').value.trim();
-        const password = document.getElementById('reg-password').value;
-        const msg = document.getElementById('reg-msg');
-        msg.className = 'msg';
-        const res = await fetch(`${API}/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-            localStorage.setItem('patchpilot_api_key', data.api_key);
-            document.getElementById('api-key').value = data.api_key;
-            msg.textContent = 'Account created! API key saved automatically.';
-            msg.className = 'msg success';
-            loadRepos();
-            loadPatches();
-            loadStats();
-            loadActivity();
-        } else {
-            msg.textContent = `Error: ${data.detail}`;
-            msg.className = 'msg error';
-        }
-    }
-
-    async function loginUser() {
-        const email = document.getElementById('login-email').value.trim();
-        const password = document.getElementById('login-password').value;
-        const msg = document.getElementById('login-msg');
-        msg.className = 'msg';
-        const res = await fetch(`${API}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-            localStorage.setItem('patchpilot_api_key', data.api_key);
-            document.getElementById('api-key').value = data.api_key;
-            msg.textContent = `Logged in as ${data.email}. API key loaded.`;
-            msg.className = 'msg success';
-            loadRepos();
-            loadPatches();
-            loadStats();
-            loadActivity();
-        } else {
-            msg.textContent = `Error: ${data.detail}`;
-            msg.className = 'msg error';
-        }
-    }
-
     const savedKey = getKey();
     if (savedKey) {
-        document.getElementById('api-key').value = savedKey;
-        loadRepos();
-        loadPatches();
-        loadStats();
-        loadActivity();
+        showDashboard('');
     }
 </script>
 

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -75,7 +75,7 @@ class ChangelogSnapshot(Base):
     version = Column(String, nullable=False)
     content_hash = Column(String, nullable=False)
     raw_content = Column(Text, nullable=False)
-    scraped_at = Column(DateTime, default=lambda: datetime.now(tz=timezone.utc))
+    scraped_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
     is_stable = Column(Boolean, default=False)
 
     patches = relationship("Patch", back_populates="snapshot")

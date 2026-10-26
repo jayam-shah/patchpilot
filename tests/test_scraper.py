@@ -1,21 +1,25 @@
-from scraper.stripe_scraper import hash_content, parse_changelog
+from scraper.stripe_scraper import StripeScraper
 
 
 def test_hash_is_consistent():
+    scraper = StripeScraper()
     content = "Stripe API changelog v2024"
-    assert hash_content(content) == hash_content(content)
+    assert scraper.hash_content(content) == scraper.hash_content(content)
 
 
 def test_hash_changes_on_different_content():
-    assert hash_content("version 1") != hash_content("version 2")
+    scraper = StripeScraper()
+    assert scraper.hash_content("version 1") != scraper.hash_content("version 2")
 
 
 def test_hash_is_64_chars():
-    result = hash_content("any content")
+    scraper = StripeScraper()
+    result = scraper.hash_content("any content")
     assert len(result) == 64
 
 
 def test_parse_changelog_removes_nav():
+    scraper = StripeScraper()
     html = """
     <html><body>
     <nav>Navigation links here</nav>
@@ -26,14 +30,15 @@ def test_parse_changelog_removes_nav():
     <footer>Footer content</footer>
     </body></html>
     """
-    result = parse_changelog(html)
+    result = scraper.parse_changelog(html)
     assert "PaymentIntent" in result
     assert "Navigation links" not in result
     assert "Footer content" not in result
 
 
 def test_parse_changelog_returns_string():
+    scraper = StripeScraper()
     html = "<html><body><main><p>content</p></main></body></html>"
-    result = parse_changelog(html)
+    result = scraper.parse_changelog(html)
     assert isinstance(result, str)
     assert len(result) > 0

@@ -37,6 +37,11 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
 
+    plan = Column(String, default="free")
+    plan_override = Column(String, nullable=True)
+    plan_expires_at = Column(DateTime, nullable=True)
+    is_admin = Column(Boolean, default=False)
+
     repos = relationship("Repo", back_populates="user")
 
 

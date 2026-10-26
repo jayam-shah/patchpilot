@@ -65,6 +65,13 @@ class PatchStatusUpdate(BaseModel):
     status: str
 
 
+class AdminPlanUpdate(BaseModel):
+    email: str
+    plan_override: str | None = None
+    plan_expires_at: str | None = None
+    is_active: bool | None = None
+
+
 @app.get("/health")
 @limiter.limit("60/minute")
 def health(request: Request):
@@ -109,6 +116,8 @@ def register_repo(
     body: RepoRegisterRequest,
     current_user: User = Depends(verify_api_key),  # noqa: B008
 ):
+    from plans import check_api_limit, check_repo_limit
+
     parts = body.github_url.rstrip("/").split("/")
     if len(parts) < 2:
         raise HTTPException(status_code=400, detail="Invalid GitHub URL")
@@ -117,15 +126,37 @@ def register_repo(
 
     session = get_session()
     try:
-        query = session.query(Repo).filter_by(owner=owner, repo_name=repo_name)
+        query = session.query(Repo).filter_by(is_active=True)
         if current_user:
             query = query.filter_by(user_id=current_user.id)
-        existing = query.first()
+
+        current_count = query.count()
+
+        allowed, msg = check_repo_limit(current_user, current_count)
+        if not allowed:
+            raise HTTPException(status_code=403, detail=msg)
+
+        allowed, msg = check_api_limit(current_user, body.api_name)
+        if not allowed:
+            raise HTTPException(status_code=403, detail=msg)
+
+        if current_user:
+            existing = (
+                session.query(Repo)
+                .filter_by(owner=owner, repo_name=repo_name, user_id=current_user.id)
+                .first()
+            )
+        else:
+            existing = (
+                session.query(Repo).filter_by(owner=owner, repo_name=repo_name).first()
+            )
+
         if existing:
             raise HTTPException(
                 status_code=409,
                 detail=f"Repo {owner}/{repo_name} already registered",
             )
+
         repo = Repo(
             github_url=body.github_url,
             owner=owner,
@@ -144,6 +175,42 @@ def register_repo(
             "api_name": repo.api_name,
             "is_active": repo.is_active,
         }
+    finally:
+        session.close()
+
+
+@app.get("/repos")
+@limiter.limit("30/minute")
+def list_repos(
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    session = get_session()
+    try:
+        query = session.query(Repo).filter_by(is_active=True)
+        if current_user:
+            query = query.filter_by(user_id=current_user.id)
+        repos = query.all()
+
+        result = []
+        for r in repos:
+            patches = session.query(Patch).filter_by(repo_id=r.id).all()
+            last_pr = next(
+                (p.pr_url for p in reversed(patches) if p.pr_url),
+                None,
+            )
+            result.append(
+                {
+                    "id": r.id,
+                    "github_url": r.github_url,
+                    "owner": r.owner,
+                    "repo_name": r.repo_name,
+                    "api_name": r.api_name,
+                    "patch_count": len(patches),
+                    "last_pr_url": last_pr,
+                }
+            )
+        return result
     finally:
         session.close()
 
@@ -229,13 +296,23 @@ def get_stats(
             "total_patches": total_patches,
             "total_prs": total_prs,
             "last_checked": last_checked,
-            "apis_watched": ["Stripe", "Twilio", "OpenAI"],
+            "apis_watched": [
+                "Stripe",
+                "Twilio",
+                "OpenAI",
+                "Plaid",
+                "SendGrid",
+                "Slack",
+                "GitHub",
+                "Anthropic",
+                "Shopify",
+            ],
         }
     finally:
         session.close()
 
 
-@app.get("/activity")  # ← add from here
+@app.get("/activity")
 @limiter.limit("30/minute")
 def get_activity(
     request: Request,
@@ -263,38 +340,136 @@ def get_activity(
         session.close()
 
 
-@app.get("/repos")
+@app.get("/me")
 @limiter.limit("30/minute")
-def list_repos(
+def get_me(
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    from plans import get_effective_plan, get_plan_limits
+
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    plan = get_effective_plan(current_user)
+    limits = get_plan_limits(current_user)
+
+    return {
+        "email": current_user.email,
+        "plan": plan,
+        "plan_override": current_user.plan_override,
+        "plan_expires_at": (
+            str(current_user.plan_expires_at) if current_user.plan_expires_at else None
+        ),
+        "limits": limits,
+    }
+
+
+@app.post("/admin/plan")
+@limiter.limit("30/minute")
+def admin_update_plan(
+    request: Request,
+    body: AdminPlanUpdate,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    if not current_user or not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    session = get_session()
+    try:
+        user = session.query(User).filter_by(email=body.email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail=f"User {body.email} not found")
+
+        if body.plan_override is not None:
+            user.plan_override = (
+                body.plan_override if body.plan_override != "remove" else None
+            )
+
+        if body.plan_expires_at is not None:
+            from datetime import UTC, datetime
+
+            if body.plan_expires_at == "never":
+                user.plan_expires_at = None
+            else:
+                user.plan_expires_at = datetime.fromisoformat(
+                    body.plan_expires_at
+                ).replace(tzinfo=UTC)
+
+        if body.is_active is not None:
+            user.is_active = body.is_active
+
+        session.commit()
+        session.refresh(user)
+
+        from plans import get_effective_plan
+
+        logger.info(
+            f"Admin updated {body.email}: plan={get_effective_plan(user)}, active={user.is_active}"
+        )
+
+        return {
+            "email": user.email,
+            "plan": user.plan,
+            "plan_override": user.plan_override,
+            "plan_expires_at": (
+                str(user.plan_expires_at) if user.plan_expires_at else None
+            ),
+            "is_active": user.is_active,
+            "effective_plan": get_effective_plan(user),
+        }
+    finally:
+        session.close()
+
+
+@app.get("/admin/users")
+@limiter.limit("30/minute")
+def admin_list_users(
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    if not current_user or not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    session = get_session()
+    try:
+        users = session.query(User).all()
+        from plans import get_effective_plan
+
+        return [
+            {
+                "id": u.id,
+                "email": u.email,
+                "plan": u.plan,
+                "effective_plan": get_effective_plan(u),
+                "plan_override": u.plan_override,
+                "plan_expires_at": (
+                    str(u.plan_expires_at) if u.plan_expires_at else None
+                ),
+                "is_active": u.is_active,
+                "created_at": str(u.created_at),
+            }
+            for u in users
+        ]
+    finally:
+        session.close()
+
+
+@app.delete("/repos/{repo_id}")
+@limiter.limit("10/minute")
+def deactivate_repo(
+    repo_id: int,
     request: Request,
     current_user: User = Depends(verify_api_key),  # noqa: B008
 ):
     session = get_session()
     try:
-        query = session.query(Repo).filter_by(is_active=True)
-        if current_user:
-            query = query.filter_by(user_id=current_user.id)
-        repos = query.all()
-
-        result = []
-        for r in repos:
-            patches = session.query(Patch).filter_by(repo_id=r.id).all()
-            last_pr = next(
-                (p.pr_url for p in reversed(patches) if p.pr_url),
-                None,
-            )
-            result.append(
-                {
-                    "id": r.id,
-                    "github_url": r.github_url,
-                    "owner": r.owner,
-                    "repo_name": r.repo_name,
-                    "api_name": r.api_name,
-                    "patch_count": len(patches),
-                    "last_pr_url": last_pr,
-                }
-            )
-        return result
+        repo = session.query(Repo).filter_by(id=repo_id).first()
+        if not repo:
+            raise HTTPException(status_code=404, detail="Repo not found")
+        repo.is_active = False
+        session.commit()
+        return {"message": f"Repo {repo_id} deactivated"}
     finally:
         session.close()
 

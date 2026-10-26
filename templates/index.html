@@ -283,7 +283,7 @@
         .timeline-item.changelog_detected::before { background: #facc15; }
         .timeline-item.scan_complete::before   { background: #60a5fa; }
         .timeline-item.no_change::before       { background: #2d3748; }
-
+        .timeline-item.changelog_stable::before { background: #4ade80; }
         .timeline-msg {
             font-size: 14px;
             color: #cbd5e1;
@@ -481,6 +481,7 @@
         const icons = {
             pr_opened: '↗ PR opened',
             changelog_detected: '⚡ Change detected',
+            changelog_stable: '✓ Changelog stable',
             scan_complete: '🔍 Scan complete',
             no_change: '✓ No change',
         };

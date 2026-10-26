@@ -7,80 +7,88 @@ from logger import get_logger
 from patcher.ollama_patcher import run_patcher
 from pr_creator.github_pr import run_pr_creator
 from scanner.repo_scanner import run_scanner
-from scraper.anthropic_scraper import check_anthropic_changelog
-from scraper.github_scraper import check_github_changelog
-from scraper.openai_scraper import check_openai_changelog
-from scraper.plaid_scraper import check_plaid_changelog
-from scraper.sendgrid_scraper import check_sendgrid_changelog
-from scraper.shopify_scraper import check_shopify_changelog
-from scraper.slack_scraper import check_slack_changelog
-from scraper.stripe_scraper import check_stripe_changelog
-from scraper.twilio_scraper import check_twilio_changelog
+from scraper.anthropic_scraper import AnthropicScraper
+from scraper.github_scraper import GitHubScraper
+from scraper.openai_scraper import OpenAIScraper
+from scraper.plaid_scraper import PlaidScraper
+from scraper.sendgrid_scraper import SendGridScraper
+from scraper.shopify_scraper import ShopifyScraper
+from scraper.slack_scraper import SlackScraper
+from scraper.stripe_scraper import StripeScraper
+from scraper.twilio_scraper import TwilioScraper
 
 logger = get_logger(__name__)
 
 scheduler = AsyncIOScheduler()
 
-SCRAPERS = {
-    "stripe": check_stripe_changelog,
-    "twilio": check_twilio_changelog,
-    "openai": check_openai_changelog,
-    "plaid": check_plaid_changelog,
-    "sendgrid": check_sendgrid_changelog,
-    "slack": check_slack_changelog,
-    "github": check_github_changelog,
-    "anthropic": check_anthropic_changelog,
-    "shopify": check_shopify_changelog,
+SCRAPER_CLASSES = {
+    "stripe": StripeScraper,
+    "twilio": TwilioScraper,
+    "openai": OpenAIScraper,
+    "plaid": PlaidScraper,
+    "sendgrid": SendGridScraper,
+    "slack": SlackScraper,
+    "github": GitHubScraper,
+    "anthropic": AnthropicScraper,
+    "shopify": ShopifyScraper,
 }
 
 
-async def run_full_pipeline():
-    logger.info("Starting scheduled run")
+async def detection_pass():
+    logger.info("Starting detection pass")
 
-    session = get_session()
-    try:
-        repos = session.query(Repo).filter_by(is_active=True).all()
-        repo_list = [(r.id, r.github_url, r.api_name) for r in repos]
-    finally:
-        session.close()
-
-    if not repo_list:
-        logger.warning("No active repos registered")
-        return
-
-    api_names = {api_name for _, _, api_name in repo_list}
-
-    for api_name in api_names:
-        scraper_fn = SCRAPERS.get(api_name)
-        if not scraper_fn:
-            logger.warning(f"No scraper found for {api_name}")
-            continue
-
-        result = await scraper_fn()
-
+    for api_name, scraper_class in SCRAPER_CLASSES.items():
+        scraper = scraper_class()
+        result = await scraper.check_changelog()
         if result is None:
-            logger.info(f"[{api_name}] No change detected")
             log_event(
                 "no_change",
                 f"Checked {api_name.title()} changelog — no changes detected",
                 api_name=api_name,
             )
-            continue
+        else:
+            log_event(
+                "changelog_detected",
+                f"{api_name.title()} API changelog changed — waiting 2h for stability check",
+                api_name=api_name,
+            )
 
-        log_event(
-            "changelog_detected",
-            f"{api_name.title()} API changelog changed — scanning affected repos",
-            api_name=api_name,
-        )
+    logger.info("Detection pass complete")
+
+
+async def stability_pass():
+    logger.info("Starting stability pass")
+
+    for api_name, scraper_class in SCRAPER_CLASSES.items():
+        scraper = scraper_class()
+        result = await scraper.verify_stability()
+
+        if result is None:
+            continue
 
         snapshot_id = result["snapshot_id"]
         changelog_content = result["content"]
-        logger.info(f"[{api_name}] Change detected — snapshot id={snapshot_id}")
 
-        for repo_id, github_url, repo_api_name in repo_list:
-            if repo_api_name != api_name:
-                continue
+        log_event(
+            "changelog_stable",
+            f"{api_name.title()} changelog confirmed stable — running pipeline",
+            api_name=api_name,
+        )
 
+        session = get_session()
+        try:
+            repos = (
+                session.query(Repo).filter_by(is_active=True, api_name=api_name).all()
+            )
+            repo_list = [(r.id, r.github_url) for r in repos]
+        finally:
+            session.close()
+
+        if not repo_list:
+            logger.info(f"[{api_name}] No active repos to process")
+            continue
+
+        for repo_id, github_url in repo_list:
             logger.info(f"Processing {github_url}")
             patches = run_scanner(repo_id, github_url, snapshot_id, api_name)
 
@@ -114,18 +122,29 @@ async def run_full_pipeline():
                     repo_id=repo_id,
                 )
 
-    logger.info("Run complete")
+    logger.info("Stability pass complete")
+
+
+async def run_full_pipeline():
+    await detection_pass()
+    await stability_pass()
 
 
 def start_scheduler():
     scheduler.add_job(
-        run_full_pipeline,
-        trigger=IntervalTrigger(hours=24),
-        id="stripe_pipeline",
+        detection_pass,
+        trigger=IntervalTrigger(hours=4),
+        id="detection_pass",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        stability_pass,
+        trigger=IntervalTrigger(hours=2),
+        id="stability_pass",
         replace_existing=True,
     )
     scheduler.start()
-    logger.info("Scheduler started — pipeline runs every 24 hours")
+    logger.info("Scheduler started — detection every 4h, stability check every 2h")
 
 
 def stop_scheduler():

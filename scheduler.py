@@ -8,6 +8,7 @@ from patcher.ollama_patcher import run_patcher
 from pr_creator.github_pr import run_pr_creator
 from scanner.repo_scanner import run_scanner
 from scraper.openai_scraper import check_openai_changelog
+from scraper.plaid_scraper import check_plaid_changelog
 from scraper.stripe_scraper import check_stripe_changelog
 from scraper.twilio_scraper import check_twilio_changelog
 
@@ -19,6 +20,7 @@ SCRAPERS = {
     "stripe": check_stripe_changelog,
     "twilio": check_twilio_changelog,
     "openai": check_openai_changelog,
+    "plaid": check_plaid_changelog,
 }
 
 

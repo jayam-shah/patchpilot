@@ -31,6 +31,17 @@ API_PATTERNS = {
         "client.embeddings.create",
         "openai.Image.create",
     ],
+    "plaid": [
+        "plaid.api.plaid_api",
+        "PlaidClient",
+        "LinkTokenCreateRequest",
+        "transactions_get",
+        "accounts_get",
+        "auth_get",
+        "identity_get",
+        "client.link_token_create",
+        "client.transactions_sync",
+    ],
 }
 
 SCANNABLE_EXTENSIONS = [".py", ".js", ".ts", ".rb", ".go", ".java"]

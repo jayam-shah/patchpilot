@@ -845,8 +845,7 @@ async function rescanRepo(repoId) {
         headers: headers(),
         body: JSON.stringify({ action: 'rescan', service: '', feature: '' }),
     });
-    const data = await res.json();
-    alert(`Rescan complete — ${data.findings_count || 0} usages found.`);
+    await res.json();
     loadRepos();
 }
 

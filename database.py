@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
@@ -56,6 +57,47 @@ class ActivityLog(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
 
 
+class RepoApiUsage(Base):
+    __tablename__ = "repo_api_usage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    repo_id = Column(Integer, ForeignKey("repos.id"), nullable=False)
+    service = Column(String, nullable=False)
+    feature = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    line_number = Column(Integer, nullable=True)
+    detected_by = Column(String, nullable=False, default="regex")
+    sdk_version = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
+
+    repo = relationship("Repo", back_populates="api_usages")
+
+
+class ChangelogTag(Base):
+    __tablename__ = "changelog_tags"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    snapshot_id = Column(Integer, ForeignKey("changelog_snapshots.id"), nullable=False)
+    service = Column(String, nullable=False)
+    features = Column(JSON, nullable=False, default=list)
+    change_type = Column(String, nullable=False, default="other")
+    tag_confidence = Column(String, nullable=False, default="low")
+    created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
+
+    snapshot = relationship("ChangelogSnapshot", back_populates="tags")
+
+
+class ServiceRequest(Base):
+    __tablename__ = "service_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    repo_id = Column(Integer, ForeignKey("repos.id"), nullable=True)
+    service_name = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
+
+
 class Repo(Base):
     __tablename__ = "repos"
 
@@ -67,7 +109,11 @@ class Repo(Base):
     api_name = Column(String, nullable=False, default="stripe")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
+    scan_status = Column(String, default="pending")
+    last_scanned_sha = Column(String, nullable=True)
+    last_scanned_at = Column(DateTime, nullable=True)
 
+    api_usages = relationship("RepoApiUsage", back_populates="repo")
     user = relationship("User", back_populates="repos")
     patches = relationship("Patch", back_populates="repo")
 
@@ -83,6 +129,7 @@ class ChangelogSnapshot(Base):
     scraped_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
     is_stable = Column(Boolean, default=False)
 
+    tags = relationship("ChangelogTag", back_populates="snapshot")
     patches = relationship("Patch", back_populates="snapshot")
 
 

@@ -500,6 +500,108 @@ def admin_list_users(
         session.close()
 
 
+@app.get("/admin/metrics", include_in_schema=False)
+@limiter.limit("30/minute")
+def get_metrics(
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    if not current_user or not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    session = get_session()
+    try:
+        from database import ServiceRequest
+        from plans import get_effective_plan
+
+        total_users = session.query(User).count()
+        active_users = session.query(User).filter_by(is_active=True).count()
+
+        plan_counts = {}
+        for user in session.query(User).all():
+            plan = get_effective_plan(user)
+            plan_counts[plan] = plan_counts.get(plan, 0) + 1
+
+        total_repos = session.query(Repo).filter_by(is_active=True).count()
+        total_snapshots = session.query(ChangelogSnapshot).count()
+        stable_snapshots = (
+            session.query(ChangelogSnapshot).filter_by(is_stable=True).count()
+        )
+
+        total_patches = session.query(Patch).count()
+        pr_opened = session.query(Patch).filter_by(status="pr_opened").count()
+        pr_merged = session.query(Patch).filter_by(status="merged").count()
+        pr_dismissed = session.query(Patch).filter_by(status="dismissed").count()
+
+        merge_rate = round(pr_merged / pr_opened * 100, 1) if pr_opened > 0 else 0
+
+        from database import ActivityLog
+
+        total_events = session.query(ActivityLog).count()
+        pr_events = session.query(ActivityLog).filter_by(event_type="pr_opened").count()
+        breaking_events = (
+            session.query(ActivityLog)
+            .filter_by(event_type="changelog_detected")
+            .count()
+        )
+
+        service_requests = session.query(ServiceRequest).all()
+        requested_services = {}
+        for sr in service_requests:
+            requested_services[sr.service_name] = (
+                requested_services.get(sr.service_name, 0) + 1
+            )
+        top_requested = sorted(
+            requested_services.items(), key=lambda x: x[1], reverse=True
+        )[:5]
+
+        from database import RepoApiUsage
+
+        usage_rows = session.query(RepoApiUsage).all()
+        service_usage_counts = {}
+        for u in usage_rows:
+            service_usage_counts[u.service] = service_usage_counts.get(u.service, 0) + 1
+        top_services = sorted(
+            service_usage_counts.items(), key=lambda x: x[1], reverse=True
+        )
+
+        return {
+            "users": {
+                "total": total_users,
+                "active": active_users,
+                "by_plan": plan_counts,
+            },
+            "repos": {
+                "total_active": total_repos,
+            },
+            "changelogs": {
+                "total_snapshots": total_snapshots,
+                "stable_snapshots": stable_snapshots,
+                "match_rate_pct": (
+                    round(stable_snapshots / total_snapshots * 100, 1)
+                    if total_snapshots > 0
+                    else 0
+                ),
+            },
+            "patches": {
+                "total": total_patches,
+                "pr_opened": pr_opened,
+                "pr_merged": pr_merged,
+                "pr_dismissed": pr_dismissed,
+                "merge_rate_pct": merge_rate,
+            },
+            "activity": {
+                "total_events": total_events,
+                "prs_opened": pr_events,
+                "breaking_changes_detected": breaking_events,
+            },
+            "top_requested_services": top_requested,
+            "top_used_services": top_services,
+        }
+    finally:
+        session.close()
+
+
 @app.delete("/repos/{repo_id}")
 @limiter.limit("10/minute")
 def deactivate_repo(

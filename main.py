@@ -10,8 +10,8 @@ from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from activity import log_event
 
+from activity import log_event
 from auth import verify_api_key
 from database import (
     ActivityLog,

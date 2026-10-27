@@ -851,6 +851,10 @@ async def github_webhook(request: Request):
     logger.info(f"[Webhook] Push to {repo_url} — {len(changed_files)} files changed")
     return {"message": "rescan triggered"}
 
+@app.get("/pricing", response_class=HTMLResponse, include_in_schema=False)
+def pricing():
+    with open("templates/pricing.html") as f:
+        return f.read()
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def landing():

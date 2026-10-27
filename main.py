@@ -177,16 +177,34 @@ def register_repo(
         session.add(repo)
         session.commit()
         session.refresh(repo)
-        return {
-            "id": repo.id,
-            "github_url": repo.github_url,
-            "owner": repo.owner,
-            "repo_name": repo.repo_name,
-            "api_name": repo.api_name,
-            "is_active": repo.is_active,
-        }
+
+        repo_id = repo.id
+        github_url = body.github_url
+
     finally:
         session.close()
+
+    import asyncio
+
+    from scanner.usage_scanner import scan_repo_usage
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.run_in_executor(None, scan_repo_usage, repo_id, github_url)
+        else:
+            scan_repo_usage(repo_id, github_url)
+    except Exception:  # noqa: BLE001
+        logger.warning(f"Usage scan failed for {github_url} — will retry later")
+
+    return {
+        "id": repo_id,
+        "github_url": github_url,
+        "owner": owner,
+        "repo_name": repo_name,
+        "api_name": body.api_name,
+        "is_active": True,
+    }
 
 
 @app.get("/repos")

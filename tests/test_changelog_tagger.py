@@ -10,13 +10,13 @@ def test_detects_breaking_change():
 
 def test_detects_deprecation():
     text = "The charges endpoint is deprecated and will be removed in the next major version"
-    change_type, confidence = detect_change_type(text)
+    change_type, _confidence = detect_change_type(text)
     assert change_type == "deprecation"
 
 
 def test_detects_new_feature():
     text = "New: introducing the batch API endpoint for bulk operations"
-    change_type, confidence = detect_change_type(text)
+    change_type, _confidence = detect_change_type(text)
     assert change_type == "new_feature"
 
 

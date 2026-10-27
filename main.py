@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+import json
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -670,6 +674,79 @@ def request_service(
         return {"message": f"Thanks — we'll look into adding {body.service_name}"}
     finally:
         session.close()
+
+
+@app.post("/webhooks/github", include_in_schema=False)
+async def github_webhook(request: Request):
+    webhook_secret = os.getenv("GITHUB_WEBHOOK_SECRET", "")
+    body = await request.body()
+
+    if webhook_secret:
+        signature = request.headers.get("X-Hub-Signature-256", "")
+        expected = (
+            "sha256="
+            + hmac.new(webhook_secret.encode(), body, hashlib.sha256).hexdigest()
+        )
+        if not hmac.compare_digest(signature, expected):
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    payload = json.loads(body)
+    event_type = request.headers.get("X-GitHub-Event", "")
+
+    if event_type != "push":
+        return {"message": "ignored"}
+
+    repo_url = payload.get("repository", {}).get("html_url", "")
+    if not repo_url:
+        return {"message": "no repo url"}
+
+    changed_files = []
+    for commit in payload.get("commits", []):
+        changed_files.extend(commit.get("added", []))
+        changed_files.extend(commit.get("modified", []))
+
+    session = get_session()
+    try:
+        repo = (
+            session.query(Repo)
+            .filter(
+                Repo.github_url.ilike(f"%{repo_url.split('github.com/')[-1]}%"),
+                Repo.is_active == True,
+            )
+            .first()
+        )
+        if not repo:
+            return {"message": "repo not monitored"}
+        repo_id = repo.id
+        github_url = repo.github_url
+    finally:
+        session.close()
+
+    import asyncio
+
+    from scanner.usage_scanner import scan_repo_usage
+
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, scan_repo_usage, repo_id, github_url)
+
+    dependency_files = {
+        "requirements.txt",
+        "package.json",
+        "pyproject.toml",
+        "setup.py",
+        "Pipfile",
+    }
+    has_dep_change = any(f.split("/")[-1] in dependency_files for f in changed_files)
+
+    if has_dep_change:
+        log_event(
+            "no_change",
+            f"Dependency file changed in {github_url.split('/')[-1]} — rescanning APIs",
+            repo_id=repo_id,
+        )
+
+    logger.info(f"[Webhook] Push to {repo_url} — {len(changed_files)} files changed")
+    return {"message": "rescan triggered"}
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)

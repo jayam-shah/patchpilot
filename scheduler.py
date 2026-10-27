@@ -2,6 +2,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from activity import log_event
+from database import Repo, get_session
 from logger import get_logger
 from patcher.ollama_patcher import run_patcher
 from pr_creator.github_pr import run_pr_creator
@@ -53,6 +54,54 @@ async def detection_pass():
             )
 
     logger.info("Detection pass complete")
+
+
+async def freshness_check():
+    logger.info("Starting freshness check")
+    from github import GithubException
+
+    from scanner.repo_scanner import get_github_client, parse_repo_url
+    from scanner.usage_scanner import scan_repo_usage
+
+    session = get_session()
+    try:
+        repos = session.query(Repo).filter_by(is_active=True).all()
+        repo_list = [(r.id, r.github_url, r.last_scanned_sha) for r in repos]
+    finally:
+        session.close()
+
+    if not repo_list:
+        return
+
+    client = get_github_client()
+
+    for repo_id, github_url, last_sha in repo_list:
+        try:
+            owner, repo_name = parse_repo_url(github_url)
+            repo = client.get_repo(f"{owner}/{repo_name}")
+            latest_sha = repo.get_branch(repo.default_branch).commit.sha
+
+            if latest_sha == last_sha:
+                logger.debug(f"[Freshness] {github_url} unchanged — skipping")
+                continue
+
+            logger.info(f"[Freshness] {github_url} has new commits — rescanning")
+            result = scan_repo_usage(repo_id, github_url)
+            logger.info(f"[Freshness] Rescan complete — status={result['status']}")
+
+            if result.get("services_found"):
+                log_event(
+                    "no_change",
+                    f"Repo {github_url.split('/')[-1]} rescanned — "
+                    f"found {result['services_found']}",
+                    api_name=None,
+                    repo_id=repo_id,
+                )
+
+        except GithubException as e:
+            logger.error(f"[Freshness] Cannot access {github_url}: {e.status}")
+
+    logger.info("Freshness check complete")
 
 
 async def stability_pass():
@@ -175,8 +224,16 @@ def start_scheduler():
         id="stability_pass",
         replace_existing=True,
     )
+    scheduler.add_job(
+        freshness_check,
+        trigger=IntervalTrigger(hours=24),
+        id="freshness_check",
+        replace_existing=True,
+    )
     scheduler.start()
-    logger.info("Scheduler started — detection every 4h, stability check every 2h")
+    logger.info(
+        "Scheduler started — detection every 4h, stability check every 2h, freshness every 24h"
+    )
 
 
 def stop_scheduler():

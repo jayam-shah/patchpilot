@@ -596,7 +596,7 @@
         const res = await fetch(`${API}${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ email, password, invite_code: 'PATCHPILOT2026' }),
         });
         const data = await res.json();
 

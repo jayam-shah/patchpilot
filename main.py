@@ -20,6 +20,9 @@ from database import (
 from logger import get_logger
 from scheduler import start_scheduler, stop_scheduler
 
+INVITE_ONLY = True
+INVITE_CODE = "PATCHPILOT2026"
+
 logger = get_logger(__name__)
 
 limiter = Limiter(key_func=get_remote_address)
@@ -54,6 +57,7 @@ class RepoRegisterRequest(BaseModel):
 class UserRegisterRequest(BaseModel):
     email: str
     password: str
+    invite_code: str | None = None
 
 
 class UserLoginRequest(BaseModel):
@@ -82,6 +86,12 @@ def health(request: Request):
 @limiter.limit("5/minute")
 def register_user(request: Request, body: UserRegisterRequest):
     from users import create_user
+
+    if INVITE_ONLY and body.invite_code != INVITE_CODE:
+        raise HTTPException(
+            status_code=403,
+            detail="PatchPilot is currently invite-only. Contact jayam@patchpilot.dev for access.",
+        )
 
     try:
         user = create_user(body.email, body.password)
@@ -256,6 +266,16 @@ def update_patch_status(
         patch = session.query(Patch).filter_by(id=patch_id).first()
         if not patch:
             raise HTTPException(status_code=404, detail="Patch not found")
+
+        if current_user:
+            repo = (
+                session.query(Repo)
+                .filter_by(id=patch.repo_id, user_id=current_user.id)
+                .first()
+            )
+            if not repo:
+                raise HTTPException(status_code=403, detail="Not your patch")
+
         patch.status = body.status
         session.commit()
         return {"message": f"Patch {patch_id} marked as {body.status}"}
@@ -365,7 +385,7 @@ def get_me(
     }
 
 
-@app.post("/admin/plan")
+@app.post("/admin/plan", include_in_schema=False)
 @limiter.limit("30/minute")
 def admin_update_plan(
     request: Request,
@@ -422,7 +442,7 @@ def admin_update_plan(
         session.close()
 
 
-@app.get("/admin/users")
+@app.get("/admin/users", include_in_schema=False)
 @limiter.limit("30/minute")
 def admin_list_users(
     request: Request,
@@ -464,7 +484,10 @@ def deactivate_repo(
 ):
     session = get_session()
     try:
-        repo = session.query(Repo).filter_by(id=repo_id).first()
+        query = session.query(Repo).filter_by(id=repo_id)
+        if current_user:
+            query = query.filter_by(user_id=current_user.id)
+        repo = query.first()
         if not repo:
             raise HTTPException(status_code=404, detail="Repo not found")
         repo.is_active = False
@@ -473,24 +496,26 @@ def deactivate_repo(
     finally:
         session.close()
 
-@app.get("/terms", response_class=HTMLResponse)
+
+@app.get("/terms", response_class=HTMLResponse, include_in_schema=False)
 def terms():
     with open("templates/terms.html") as f:
         return f.read()
 
 
-@app.get("/privacy", response_class=HTMLResponse)
+@app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
 def privacy():
     with open("templates/privacy.html") as f:
         return f.read()
 
-@app.get("/", response_class=HTMLResponse)
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def landing():
     with open("templates/landing.html") as f:
         return f.read()
 
 
-@app.get("/dashboard", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 def dashboard():
     with open("templates/index.html") as f:
         return f.read()

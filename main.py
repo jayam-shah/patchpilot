@@ -13,6 +13,8 @@ from database import (
     ChangelogSnapshot,
     Patch,
     Repo,
+    RepoApiUsage,
+    ServiceRequest,
     User,
     get_session,
     init_db,
@@ -525,6 +527,149 @@ def terms():
 def privacy():
     with open("templates/privacy.html") as f:
         return f.read()
+
+
+@app.get("/repos/{repo_id}/usage")
+@limiter.limit("30/minute")
+def get_repo_usage(
+    repo_id: int,
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    session = get_session()
+    try:
+        repo = session.query(Repo).filter_by(id=repo_id).first()
+        if not repo:
+            raise HTTPException(status_code=404, detail="Repo not found")
+        if current_user and repo.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not your repo")
+
+        usages = session.query(RepoApiUsage).filter_by(repo_id=repo_id).all()
+        return {
+            "repo_id": repo_id,
+            "scan_status": repo.scan_status,
+            "last_scanned_at": (
+                str(repo.last_scanned_at) if repo.last_scanned_at else None
+            ),
+            "usages": [
+                {
+                    "id": u.id,
+                    "service": u.service,
+                    "feature": u.feature,
+                    "file_path": u.file_path,
+                    "line_number": u.line_number,
+                    "detected_by": u.detected_by,
+                    "sdk_version": u.sdk_version,
+                }
+                for u in usages
+            ],
+        }
+    finally:
+        session.close()
+
+
+class UsageEditRequest(BaseModel):
+    action: str
+    service: str
+    feature: str
+    usage_id: int | None = None
+
+
+@app.post("/repos/{repo_id}/usage")
+@limiter.limit("20/minute")
+def edit_repo_usage(
+    repo_id: int,
+    request: Request,
+    body: UsageEditRequest,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    session = get_session()
+    try:
+        repo = session.query(Repo).filter_by(id=repo_id).first()
+        if not repo:
+            raise HTTPException(status_code=404, detail="Repo not found")
+        if current_user and repo.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not your repo")
+
+        if body.action == "add":
+            existing = (
+                session.query(RepoApiUsage)
+                .filter_by(repo_id=repo_id, service=body.service, feature=body.feature)
+                .first()
+            )
+            if existing:
+                raise HTTPException(status_code=409, detail="Already exists")
+            usage = RepoApiUsage(
+                repo_id=repo_id,
+                service=body.service,
+                feature=body.feature,
+                file_path="manual",
+                detected_by="manual",
+            )
+            session.add(usage)
+            session.commit()
+            return {"message": f"Added {body.service}/{body.feature}"}
+
+        elif body.action == "remove":
+            if not body.usage_id:
+                raise HTTPException(
+                    status_code=400, detail="usage_id required for remove"
+                )
+            usage = (
+                session.query(RepoApiUsage)
+                .filter_by(id=body.usage_id, repo_id=repo_id)
+                .first()
+            )
+            if not usage:
+                raise HTTPException(status_code=404, detail="Usage not found")
+            session.delete(usage)
+            session.commit()
+            return {"message": "Removed"}
+
+        elif body.action == "rescan":
+            from scanner.usage_scanner import scan_repo_usage
+
+            result = scan_repo_usage(repo_id, repo.github_url)
+            return {
+                "message": "Rescan complete",
+                "findings_count": result.get("findings_count", 0),
+            }
+
+        else:
+            raise HTTPException(
+                status_code=400, detail="action must be add, remove, or rescan"
+            )
+    finally:
+        session.close()
+
+
+class ServiceRequestBody(BaseModel):
+    service_name: str
+    repo_id: int | None = None
+
+
+@app.post("/service-requests", status_code=201)
+@limiter.limit("5/minute")
+def request_service(
+    request: Request,
+    body: ServiceRequestBody,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    session = get_session()
+    try:
+        sr = ServiceRequest(
+            user_id=current_user.id if current_user else None,
+            repo_id=body.repo_id,
+            service_name=body.service_name,
+        )
+        session.add(sr)
+        session.commit()
+        logger.info(
+            f"Service request: {body.service_name} from user {current_user.id if current_user else 'anon'}"
+        )
+        return {"message": f"Thanks — we'll look into adding {body.service_name}"}
+    finally:
+        session.close()
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)

@@ -662,30 +662,69 @@
     }
 
     async function loadRepos() {
-        const res = await fetch(`${API}/repos`, { headers: headers() });
-        const container = document.getElementById('repos-container');
-        if (!res.ok) { container.innerHTML = `<p class="empty">Error loading repos.</p>`; return; }
-        const repos = await res.json();
-        if (repos.length === 0) { container.innerHTML = '<p class="empty">No repos registered yet.</p>'; return; }
-        container.innerHTML = `
-            <table>
-                <thead><tr>
-                    <th>Repository</th><th>API</th><th>Patches</th><th>Last PR</th><th>Status</th><th></th>
-                </tr></thead>
-                <tbody>
-                    ${repos.map(r => `
-                        <tr>
-                            <td><a href="${r.github_url}" target="_blank" style="color:#60a5fa; text-decoration:none;">${r.github_url.replace('https://github.com/', '')}</a></td>
-                            <td style="text-transform:capitalize;">${r.api_name}</td>
-                            <td style="color:${r.patch_count > 0 ? '#60a5fa' : '#4a5568'}; font-weight:${r.patch_count > 0 ? '600' : '400'};">${r.patch_count}</td>
-                            <td>${r.last_pr_url ? `<a class="pr-link" href="${r.last_pr_url}" target="_blank">View →</a>` : '<span style="color:#4a5568;">—</span>'}</td>
-                            <td><span class="badge active">active</span></td>
-                            <td><button class="deactivate-btn" onclick="deactivateRepo(${r.id})">Remove</button></td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>`;
+    const res = await fetch(`${API}/repos`, { headers: headers() });
+    const container = document.getElementById('repos-container');
+    if (!res.ok) { container.innerHTML = `<p class="empty">Error loading repos.</p>`; return; }
+    const repos = await res.json();
+    if (repos.length === 0) { container.innerHTML = '<p class="empty">No repos registered yet.</p>'; return; }
+
+    let html = `<table>
+        <thead><tr>
+            <th>Repository</th><th>API</th><th>Detected usage</th><th>Patches</th><th>Last PR</th><th>Status</th><th></th>
+        </tr></thead><tbody>`;
+
+    for (const r of repos) {
+        const usageRes = await fetch(`${API}/repos/${r.id}/usage`, { headers: headers() });
+        let usageHtml = '<span style="color:#4a5568;">Scanning...</span>';
+        let rescanBtn = '';
+
+        if (usageRes.ok) {
+            const usage = await usageRes.json();
+            if (usage.scan_status === 'no_supported_apis') {
+                usageHtml = `<span style="color:#4a5568; font-size:12px;">No supported APIs detected.
+                    <a href="#" onclick="requestService(${r.id})" style="color:#60a5fa;">Request one →</a></span>`;
+            } else if (usage.usages.length === 0) {
+                usageHtml = `<span style="color:#facc15; font-size:12px;">Scanning...</span>`;
+            } else {
+                const grouped = {};
+                for (const u of usage.usages) {
+                    if (!grouped[u.service]) grouped[u.service] = [];
+                    grouped[u.service].push(u);
+                }
+                usageHtml = Object.entries(grouped).map(([svc, items]) =>
+                    `<div style="margin-bottom:4px;">
+                        <span style="font-size:11px; color:#94a3b8; text-transform:capitalize;">${svc}</span>
+                        ${items.map(u =>
+                            `<span style="font-size:11px; background:#1a1f2e; border:1px solid #1e2533;
+                                color:#60a5fa; padding:1px 6px; border-radius:4px; margin-left:4px; cursor:pointer;"
+                                title="${u.file_path}${u.line_number ? ':' + u.line_number : ''} (${u.detected_by})"
+                                onclick="removeUsage(${r.id}, ${u.id})">
+                                ${u.feature} ×
+                            </span>`
+                        ).join('')}
+                    </div>`
+                ).join('');
+            }
+            rescanBtn = `<button class="action-btn" onclick="rescanRepo(${r.id})" style="font-size:10px;">↻ Rescan</button>`;
+        }
+
+        html += `<tr>
+            <td><a href="${r.github_url}" target="_blank" style="color:#60a5fa; text-decoration:none;">${r.github_url.replace('https://github.com/', '')}</a></td>
+            <td style="text-transform:capitalize;">${r.api_name}</td>
+            <td style="max-width:200px;">${usageHtml}</td>
+            <td style="color:${r.patch_count > 0 ? '#60a5fa' : '#4a5568'}; font-weight:${r.patch_count > 0 ? '600' : '400'};">${r.patch_count}</td>
+            <td>${r.last_pr_url ? `<a class="pr-link" href="${r.last_pr_url}" target="_blank">View →</a>` : '<span style="color:#4a5568;">—</span>'}</td>
+            <td><span class="badge active">active</span></td>
+            <td>
+                ${rescanBtn}
+                <button class="deactivate-btn" onclick="deactivateRepo(${r.id})" style="margin-left:4px;">Remove</button>
+            </td>
+        </tr>`;
     }
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
 
     async function loadPatches() {
         const res = await fetch(`${API}/patches`, { headers: headers() });
@@ -789,6 +828,39 @@
     if (savedKey) {
         showDashboard('');
     }
+
+    async function removeUsage(repoId, usageId) {
+    if (!confirm('Remove this detected usage?')) return;
+    await fetch(`${API}/repos/${repoId}/usage`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ action: 'remove', usage_id: usageId, service: '', feature: '' }),
+    });
+    loadRepos();
+}
+
+async function rescanRepo(repoId) {
+    const res = await fetch(`${API}/repos/${repoId}/usage`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ action: 'rescan', service: '', feature: '' }),
+    });
+    const data = await res.json();
+    alert(`Rescan complete — ${data.findings_count || 0} usages found.`);
+    loadRepos();
+}
+
+async function requestService(repoId) {
+    const name = prompt('Which API/service do you wish PatchPilot watched?');
+    if (!name) return;
+    await fetch(`${API}/service-requests`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ service_name: name, repo_id: repoId }),
+    });
+    alert(`Thanks! We logged your request for "${name}".`);
+}
+
 </script>
 
 </body>

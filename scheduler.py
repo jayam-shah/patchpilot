@@ -69,6 +69,23 @@ async def stability_pass():
         snapshot_id = result["snapshot_id"]
         changelog_content = result["content"]
 
+        from changelog_tagger import tag_snapshot
+
+        tag = tag_snapshot(snapshot_id, api_name)
+        if tag:
+            logger.info(
+                f"[{api_name}] Tagged as {tag.change_type} "
+                f"features={tag.features} confidence={tag.tag_confidence}"
+            )
+            if tag.change_type == "new_feature":
+                logger.info(f"[{api_name}] New feature only — skipping patching")
+                log_event(
+                    "no_change",
+                    f"{api_name.title()} changelog has new features only — no patching needed",
+                    api_name=api_name,
+                )
+                continue
+
         log_event(
             "changelog_stable",
             f"{api_name.title()} changelog confirmed stable — running pipeline",

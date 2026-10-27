@@ -1,11 +1,31 @@
+import os
+
+os.environ.setdefault("API_KEY", "test-key-for-ci")
+
 from fastapi.testclient import TestClient
 
-from database import init_db
+from database import User, get_session, init_db
 from main import app
 
-init_db()
-
 client = TestClient(app)
+
+
+def setup_test_user():
+    init_db()
+    session = get_session()
+    try:
+        existing = session.query(User).filter_by(email="test-ci@patchpilot.dev").first()
+        if existing:
+            return existing.api_key
+        from users import create_user
+
+        user = create_user("test-ci@patchpilot.dev", "testpass123")
+        return user.api_key
+    finally:
+        session.close()
+
+
+TEST_API_KEY = setup_test_user()
 
 
 def test_health_no_auth():
@@ -24,5 +44,5 @@ def test_repos_wrong_key():
 
 
 def test_repos_correct_key():
-    response = client.get("/repos", headers={"X-API-Key": "test-key-for-ci"})
+    response = client.get("/repos", headers={"X-API-Key": TEST_API_KEY})
     assert response.status_code == 200

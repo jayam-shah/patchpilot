@@ -90,7 +90,7 @@ def _node_to_str(node) -> str:
             return _node_to_str(node.func)
         elif isinstance(node, ast.Constant):
             return str(node.value)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110
         pass
     return ""
 

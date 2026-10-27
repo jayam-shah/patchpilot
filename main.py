@@ -473,6 +473,16 @@ def deactivate_repo(
     finally:
         session.close()
 
+@app.get("/terms", response_class=HTMLResponse)
+def terms():
+    with open("templates/terms.html") as f:
+        return f.read()
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy():
+    with open("templates/privacy.html") as f:
+        return f.read()
 
 @app.get("/", response_class=HTMLResponse)
 def landing():

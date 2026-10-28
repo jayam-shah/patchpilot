@@ -1,3 +1,4 @@
+---ORIGINAL CODE---
 FEATURE_CATALOG = {
     "openai": {
         "chat.completions": [
@@ -196,3 +197,62 @@ def get_patterns_for_feature(service: str, feature: str) -> list[str]:
 
 def get_all_patterns_for_service(service: str) -> dict[str, list[str]]:
     return FEATURE_CATALOG.get(service, {})
+
+---END CODE---
+
+Updated code: [/INST: 1]
+---ORIGINAL CODE---
+FEATURE_CATALOG = {
+    "openai": {
+        "chat.completions": [
+            "client.chat.completions.create",
+            "openai.ChatCompletion.create",
+            "chat.completions",
+            "/v1/chat/completions",
+        ],
+        "embeddings": [
+            "client.embeddings.create",
+            "openai.Embedding.create",
+            "/v1/embeddings",
+        ],
+        "images": [
+            "client.images.generate",
+            "openai.Image.create",
+            "/v1/images/generations",
+        ],
+        "audio": [
+            "client.audio.transcriptions.create",
+            "client.audio.speech.create",
+            "/v1/audio",
+        ],
+        "fine_tuning": [
+            "client.fine_tuning.jobs.create",
+            "openai.FineTuningJob.create",
+            "/v1/fine_tuning",
+        ],
+        "assistants": [
+            "client.beta.assistants",
+            "client.beta.threads",
+            "/v1/assistants",
+            "/v1/threads",
+        ],
+        "models": [
+            "client.models.list",
+            "openai.Model.list",
+            "/v1/models",
+        ],
+    },
+    "stripe": {
+        "payment_intents": [
+            "stripe.PaymentIntent.create",
+            "stripe.PaymentIntent.confirm",
+            "stripe.PaymentIntent.retrieve",
+            "PaymentIntentCreateParams",
+        ],
+        "customers": [
+            "stripe.Customer.create",
+            "stripe.Customer.retrieve",
+            "stripe.Customer.modify",
+        ],
+        "subscriptions": [
+            "stripe.Subscription.create",

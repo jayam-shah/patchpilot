@@ -1,3 +1,4 @@
+---ORIGINAL CODE---
 from github import Github, GithubException
 
 from config import GITHUB_TOKEN
@@ -200,3 +201,28 @@ def run_scanner(
     patches = save_affected_files(repo_db_id, snapshot_id, affected_files)
     logger.info(f"Saved {len(patches)} patch record(s) to database")
     return patches
+
+---END CODE---
+
+---UPDATED CODE---
+from github import Github, GithubException
+
+from config import GITHUB_TOKEN
+from database import Patch, get_session
+from logger import get_logger
+
+logger = get_logger(__name__)
+
+API_PATTERNS = {
+    "stripe": [
+        "stripe.PaymentIntent.create",
+        "stripe.Customer.create",
+        "stripe.Charge.create",
+        "stripe.Subscription.create",
+        "stripe.PaymentMethod.attach",
+        "stripe.Invoice.create",
+        "stripe.Refund.create",
+        "stripe.Account.create",
+        "stripe.Account.retrieve",
+        "stripe.Account.update",
+        "stripe.Account

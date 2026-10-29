@@ -27,9 +27,14 @@ def create_checkout_session(user_email: str, user_id: int) -> str:
 
 def handle_webhook_event(payload: bytes, sig_header: str) -> dict:
     try:
-        event = stripe.Webhook.construct_event(payload, sig_header, WEBHOOK_SECRET)
-    except stripe.error.SignatureVerificationError:
-        logger.warning("Invalid Stripe webhook signature")
+        if WEBHOOK_SECRET:
+            event = stripe.Webhook.construct_event(payload, sig_header, WEBHOOK_SECRET)
+        else:
+            import json
+
+            event = json.loads(payload)
+    except stripe.error.SignatureVerificationError as e:
+        logger.warning(f"Invalid Stripe webhook signature: {e}")
         return {"error": "invalid_signature"}
 
     logger.info(f"Stripe webhook received: {event['type']}")

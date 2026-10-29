@@ -879,19 +879,25 @@ def create_checkout(
 
 
 @app.post("/webhooks/stripe", include_in_schema=False)
+@app.post("/webhooks/stripe", include_in_schema=False)
 async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
-    from payments import handle_webhook_event
+    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
-    result = handle_webhook_event(payload, sig_header)
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+    except stripe.error.SignatureVerificationError as e:
+        logger.warning(f"Invalid Stripe webhook signature: {e}")
+        raise HTTPException(status_code=400, detail="invalid_signature")
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Webhook error: {e}")
+        raise HTTPException(status_code=400, detail="webhook_error")
 
-    if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
-
-    event_type = result.get("event_type")
-    data = result.get("data", {})
+    event_type = event["type"]
+    data = event["data"]["object"]
+    logger.info(f"Stripe webhook received: {event_type}")
 
     session = get_session()
     try:
@@ -924,10 +930,7 @@ async def stripe_webhook(request: Request):
                 if user:
                     user.plan = "free"
                     session.commit()
-                    logger.info(
-                        f"User {user.email} downgraded to free — subscription cancelled"
-                    )
-
+                    logger.info(f"User {user.email} downgraded to free")
     finally:
         session.close()
 

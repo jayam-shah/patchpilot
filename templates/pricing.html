@@ -331,10 +331,10 @@
         <div class="plan-name">Pro</div>
         <div class="plan-desc">For teams that ship fast and can't afford API surprises.</div>
         <div class="plan-price">
-            <span class="amount">$29</span>
+            <span class="amount">$7.99</span>
             <span class="period">/mo</span>
         </div>
-        <a href="mailto:jayam@patchpilot.dev?subject=PatchPilot Pro" class="cta-btn pro-btn">Start with Pro →</a>
+        <a href="#" onclick="upgradeToPro()" class="cta-btn pro-btn">Start with Pro →</a>
         <div class="feature-label">All Free features, plus:</div>
         <ul class="feature-list">
             <li><span class="check">✓</span> 10 repos monitored</li>
@@ -414,6 +414,27 @@
         <a href="/dashboard">Dashboard</a>
     </div>
 </footer>
+
+<script>
+    async function upgradeToPro() {
+        const key = localStorage.getItem('patchpilot_api_key');
+        if (!key) {
+            window.location.href = '/dashboard';
+            return;
+        }
+        const res = await fetch('/payments/create-checkout', {
+            method: 'POST',
+            headers: { 'X-API-Key': key },
+        });
+        if (res.ok) {
+            const data = await res.json();
+            window.location.href = data.checkout_url;
+        } else {
+            const data = await res.json();
+            alert(data.detail || 'Something went wrong. Please try again.');
+        }
+    }
+    </script>
 
 </body>
 </html>

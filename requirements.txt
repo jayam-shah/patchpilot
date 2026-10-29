@@ -44,6 +44,7 @@ slowapi==0.1.10
 soupsieve==2.9.2
 SQLAlchemy==2.0.52
 starlette==1.6.0
+stripe==16.1.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 tzlocal==5.4.4

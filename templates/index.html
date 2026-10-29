@@ -610,22 +610,31 @@
     }
 
     async function showDashboard(email) {
-        document.getElementById('auth-section').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('upgraded') === 'true') {
+        const banner = document.createElement('div');
+        banner.style.cssText = 'background:#0d2d1a;color:#4ade80;padding:12px 20px;text-align:center;font-size:14px;font-weight:500;border-radius:6px;margin-bottom:16px;';
+        banner.textContent = '🎉 Welcome to PatchPilot Pro! Your plan has been upgraded.';
+        document.querySelector('main').prepend(banner);
+        setTimeout(() => banner.remove(), 5000);
+    }
 
-        const meRes = await fetch(`${API}/me`, { headers: headers() });
-        if (meRes.ok) {
-            const me = await meRes.json();
-            const pill = document.getElementById('user-plan-badge');
-            pill.textContent = me.plan;
-            pill.className = `plan-badge ${me.plan}`;
-            document.getElementById('user-email').textContent = me.email || email;
-            document.getElementById('user-pill').style.display = 'flex';
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
 
-            if (me.plan === 'free') {
-                document.getElementById('upgrade-banner').style.display = 'flex';
-            }
+    const meRes = await fetch(`${API}/me`, { headers: headers() });
+    if (meRes.ok) {
+        const me = await meRes.json();
+        const pill = document.getElementById('user-plan-badge');
+        pill.textContent = me.plan;
+        pill.className = `plan-badge ${me.plan}`;
+        document.getElementById('user-email').textContent = me.email || email;
+        document.getElementById('user-pill').style.display = 'flex';
+
+        if (me.plan === 'free') {
+            document.getElementById('upgrade-banner').style.display = 'flex';
         }
+    }
 
         loadStats();
         loadRepos();

@@ -851,10 +851,88 @@ async def github_webhook(request: Request):
     logger.info(f"[Webhook] Push to {repo_url} — {len(changed_files)} files changed")
     return {"message": "rescan triggered"}
 
+
 @app.get("/pricing", response_class=HTMLResponse, include_in_schema=False)
 def pricing():
     with open("templates/pricing.html") as f:
         return f.read()
+
+
+@app.post("/payments/create-checkout")
+@limiter.limit("5/minute")
+def create_checkout(
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    from plans import get_effective_plan
+
+    if get_effective_plan(current_user) == "pro":
+        raise HTTPException(status_code=400, detail="You are already on the Pro plan")
+
+    from payments import create_checkout_session
+
+    url = create_checkout_session(current_user.email, current_user.id)
+    return {"checkout_url": url}
+
+
+@app.post("/webhooks/stripe", include_in_schema=False)
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    from payments import handle_webhook_event
+
+    result = handle_webhook_event(payload, sig_header)
+
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    event_type = result.get("event_type")
+    data = result.get("data", {})
+
+    session = get_session()
+    try:
+        if event_type == "checkout.session.completed":
+            user_id = int(data.get("metadata", {}).get("user_id", 0))
+            if user_id:
+                user = session.query(User).filter_by(id=user_id).first()
+                if user:
+                    user.plan = "pro"
+                    user.plan_override = None
+                    stripe_customer_id = data.get("customer")
+                    if stripe_customer_id:
+                        user.stripe_customer_id = stripe_customer_id
+                    session.commit()
+                    logger.info(f"User {user_id} upgraded to Pro")
+                    log_event(
+                        "no_change",
+                        f"User {user.email} upgraded to Pro via Stripe",
+                        api_name=None,
+                    )
+
+        elif event_type == "customer.subscription.deleted":
+            stripe_customer_id = data.get("customer")
+            if stripe_customer_id:
+                user = (
+                    session.query(User)
+                    .filter_by(stripe_customer_id=stripe_customer_id)
+                    .first()
+                )
+                if user:
+                    user.plan = "free"
+                    session.commit()
+                    logger.info(
+                        f"User {user.email} downgraded to free — subscription cancelled"
+                    )
+
+    finally:
+        session.close()
+
+    return {"status": "ok"}
+
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def landing():

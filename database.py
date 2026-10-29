@@ -37,6 +37,7 @@ class User(Base):
     api_key = Column(String, unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(tz=UTC))
+    stripe_customer_id = Column(String, nullable=True)
 
     plan = Column(String, default="free")
     plan_override = Column(String, nullable=True)

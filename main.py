@@ -897,13 +897,16 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=400, detail="webhook_error")
 
     event_type = event["type"]
-    data = event["data"]["object"]
+    data = event["data"]["object"].to_dict()
     logger.info(f"Stripe webhook received: {event_type}")
 
     session = get_session()
     try:
         if event_type == "checkout.session.completed":
-            user_id = int(data.get("metadata", {}).get("user_id", 0))
+            raw_user_id = (data.get("metadata") or {}).get("user_id")
+            user_id = (
+                int(raw_user_id) if raw_user_id and str(raw_user_id).isdigit() else 0
+            )
             if user_id:
                 user = session.query(User).filter_by(id=user_id).first()
                 if user:

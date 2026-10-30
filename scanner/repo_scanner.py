@@ -167,13 +167,13 @@ def scan_repo(github_url: str, api_name: str = "stripe") -> list[dict]:
 
 
 def save_affected_files(
-    repo_id: int, snapshot_id: int, affected_files: list[dict]
+    repo_db_id: int, snapshot_id: int, affected_files: list[dict]
 ) -> list[Patch]:
     session = get_session()
     try:
         for file_info in affected_files:
             patch = Patch(
-                repo_id=repo_id,
+                repo_id=repo_db_id,
                 snapshot_id=snapshot_id,
                 file_path=file_info["file_path"],
                 original_code=file_info["content"],
@@ -182,7 +182,7 @@ def save_affected_files(
             session.add(patch)
         session.commit()
         return list(
-            session.query(Patch).filter_by(repo_id=repo_id, status="pending").all()
+            session.query(Patch).filter_by(repo_id=repo_db_id, status="pending").all()
         )
     finally:
         session.close()

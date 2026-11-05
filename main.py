@@ -257,9 +257,24 @@ def list_patches(
     request: Request,
     current_user: User = Depends(verify_api_key),  # noqa: B008
 ):
+    # Must be logged in. No anonymous access to patch data.
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     session = get_session()
     try:
-        patches = session.query(Patch).order_by(Patch.created_at.desc()).limit(50).all()
+        query = session.query(Patch)
+
+        # Regular users only see patches for repos THEY own.
+        # Admins see everything.
+        if not current_user.is_admin:
+            owned_repo_ids = [
+                r.id for r in session.query(Repo.id).filter_by(user_id=current_user.id)
+            ]
+            query = query.filter(Patch.repo_id.in_(owned_repo_ids))
+
+        # Newest first, capped at 50.
+        patches = query.order_by(Patch.created_at.desc()).limit(50).all()
         return [
             {
                 "id": p.id,
@@ -324,8 +339,7 @@ def get_stats(
 
         repo_ids = [r.id for r in query.all()]
         patch_query = session.query(Patch)
-        if current_user and repo_ids:
-            patch_query = patch_query.filter(Patch.repo_id.in_(repo_ids))
+        patch_query = patch_query.filter(Patch.repo_id.in_(repo_ids))
 
         total_patches = patch_query.count()
         total_prs = patch_query.filter_by(status="pr_opened").count()

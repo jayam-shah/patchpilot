@@ -739,7 +739,7 @@
             <td><span class="badge active">active</span></td>
             <td>
                 ${rescanBtn}
-                <button class="deactivate-btn" onclick="deactivateRepo(${r.id})" style="margin-left:4px;">Remove</button>
+                <button class="deactivate-btn" onclick="deactivateRepo(${r.id}, '${(r.owner && r.repo_name) ? r.owner + '/' + r.repo_name : (r.github_url || 'this repo')}')" style="margin-left:4px;">Delete</button>
             </td>
         </tr>`;
     }
@@ -829,9 +829,19 @@
         }
     }
 
-    async function deactivateRepo(id) {
-        if (!confirm('Stop monitoring this repo?')) return;
-        await fetch(`${API}/repos/${id}`, { method: 'DELETE', headers: headers() });
+    async function deactivateRepo(id, name) {
+        const label = name || 'this repo';
+        const ok = confirm(
+            `Delete ${label}?\n\n` +
+            `This permanently deletes its patches, activity and scan history. ` +
+            `It cannot be undone, and you would have to add the repo again from scratch.`
+        );
+        if (!ok) return;
+        const res = await fetch(`${API}/repos/${id}`, { method: 'DELETE', headers: headers() });
+        if (!res.ok) {
+            alert('Could not delete this repo. Please try again.');
+            return;
+        }
         loadRepos();
         loadStats();
     }

@@ -235,3 +235,87 @@ def test_delete_repo_removes_data_and_respects_ownership(world):
         assert session.query(ActivityLog).filter_by(repo_id=repo_id).count() == 0
     finally:
         session.close()
+
+
+def _make_user_data(user_id: int, tag: str) -> int:
+    """Give a user one repo, one patch and one activity row. Returns repo id."""
+    session = get_session()
+    try:
+        snapshot_id, _ = _get_or_create_snapshot(session)
+        repo = Repo(
+            user_id=user_id,
+            github_url=f"https://github.com/isolation-test/{tag}",
+            owner="isolation-test",
+            repo_name=tag,
+            api_name="stripe",
+        )
+        session.add(repo)
+        session.commit()
+        session.add(
+            Patch(
+                repo_id=repo.id,
+                snapshot_id=snapshot_id,
+                file_path=f"{tag}.py",
+                original_code="old",
+                patched_code="new",
+            )
+        )
+        session.add(
+            ActivityLog(
+                event_type="no_change",
+                api_name="stripe",
+                repo_id=repo.id,
+                message=f"{tag}-activity",
+            )
+        )
+        session.commit()
+        return repo.id
+    finally:
+        session.close()
+
+
+def _delete_me(key: str, email: str):
+    return client.request(
+        "DELETE", "/me", headers={"X-API-Key": key}, json={"confirm_email": email}
+    )
+
+
+def test_delete_account_removes_only_that_users_data():
+    email_x, email_y = "isolation-x@patchpilot.dev", "isolation-y@patchpilot.dev"
+    uid_x, key_x = _get_or_create_user(email_x)
+    uid_y, key_y = _get_or_create_user(email_y)
+    repo_x = _make_user_data(uid_x, "acct-x")
+    repo_y = _make_user_data(uid_y, "acct-y")
+
+    # Wrong email is rejected and nothing is deleted.
+    assert _delete_me(key_x, "someone-else@example.com").status_code == 400
+    # No key is rejected.
+    r = client.request("DELETE", "/me", json={"confirm_email": email_x})
+    assert r.status_code == 401
+
+    # Correct email deletes the account.
+    assert _delete_me(key_x, email_x).status_code == 200
+
+    session = get_session()
+    try:
+        assert session.query(User).filter_by(email=email_x).count() == 0
+        assert session.query(Repo).filter_by(id=repo_x).count() == 0
+        assert session.query(Patch).filter_by(repo_id=repo_x).count() == 0
+        assert session.query(ActivityLog).filter_by(repo_id=repo_x).count() == 0
+        # The other user is untouched.
+        assert session.query(User).filter_by(email=email_y).count() == 1
+        assert session.query(Repo).filter_by(id=repo_y).count() == 1
+        assert session.query(Patch).filter_by(repo_id=repo_y).count() == 1
+    finally:
+        session.close()
+
+    # The deleted user's key no longer works; the other user's still does.
+    assert _get("/patches", key_x).status_code == 401
+    assert _get("/patches", key_y).status_code == 200
+
+    # Cleanup for user Y.
+    assert _delete_me(key_y, email_y).status_code == 200
+
+
+def test_admin_cannot_delete_own_account(world):
+    assert _delete_me(world["admin"], EMAIL_ADMIN).status_code == 403

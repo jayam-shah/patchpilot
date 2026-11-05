@@ -442,6 +442,7 @@
             <span id="user-email"></span>
             <span class="plan-badge" id="user-plan-badge"></span>
             <button class="logout-btn" onclick="logout()">Sign out</button>
+            <button class="logout-btn" onclick="deleteAccount()" style="margin-left:6px;">Delete account</button>
         </div>
     </header>
 
@@ -640,6 +641,30 @@
         loadRepos();
         loadPatches();
         loadActivity();
+    }
+
+    async function deleteAccount() {
+        const email = prompt(
+            'Delete your PatchPilot account?\n\n' +
+            'This permanently deletes your account, all your repos, patches, activity ' +
+            'and scan history, and cancels any subscription. It cannot be undone.\n\n' +
+            'Type your email address to confirm:'
+        );
+        if (email === null) return;
+        const res = await fetch(`${API}/me`, {
+            method: 'DELETE',
+            headers: { ...headers(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirm_email: email.trim() }),
+        });
+        if (!res.ok) {
+            let msg = 'Could not delete your account. Please try again.';
+            try { const d = await res.json(); if (d.detail) msg = d.detail; } catch (e) {}
+            alert(msg);
+            return;
+        }
+        localStorage.removeItem('patchpilot_api_key');
+        alert('Your account and data have been deleted.');
+        window.location.href = '/';
     }
 
     function logout() {

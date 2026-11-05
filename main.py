@@ -410,6 +410,100 @@ def get_activity(
         session.close()
 
 
+def _purge_repo_rows(session, repo_id: int) -> None:
+    """Delete every row attached to a repo (patches, activity, scans, ...).
+
+    Service requests are demand signals, not repo content: keep the row but
+    unlink it from the repo.
+    """
+    from database import Base
+
+    for table in Base.metadata.tables.values():
+        for fk in table.foreign_keys:
+            if fk.target_fullname != "repos.id":
+                continue
+            if table.name == "service_requests":
+                session.execute(
+                    table.update().where(fk.parent == repo_id).values(repo_id=None)
+                )
+            else:
+                session.execute(table.delete().where(fk.parent == repo_id))
+
+
+class DeleteAccountRequest(BaseModel):
+    confirm_email: str
+
+
+@app.delete("/me")
+@limiter.limit("5/minute")
+def delete_account(
+    body: DeleteAccountRequest,
+    request: Request,
+    current_user: User = Depends(verify_api_key),  # noqa: B008
+):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if current_user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Admin accounts cannot be deleted here"
+        )
+    if body.confirm_email.strip().lower() != current_user.email.lower():
+        raise HTTPException(status_code=400, detail="Email does not match your account")
+
+    from database import ServiceRequest
+
+    session = get_session()
+    try:
+        user = session.query(User).filter_by(id=current_user.id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Account not found")
+
+        # 1. Stripe first. If this fails we stop, so nobody is left being
+        #    billed for an account that no longer exists. A customer that is
+        #    already gone counts as success, so a retry works.
+        if user.stripe_customer_id:
+            if not stripe.api_key:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Billing is unavailable right now. Please try again later.",
+                )
+            try:
+                stripe.Customer.delete(user.stripe_customer_id)
+            except stripe.StripeError as e:
+                if getattr(e, "code", None) != "resource_missing":
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Could not cancel your subscription. Please try again.",
+                    ) from e
+
+        # 2. Repos and everything attached to them.
+        repo_ids = [r.id for r in session.query(Repo.id).filter_by(user_id=user.id)]
+        for repo_id in repo_ids:
+            _purge_repo_rows(session, repo_id)
+        session.query(Repo).filter(Repo.user_id == user.id).delete(
+            synchronize_session=False
+        )
+
+        # 3. Service requests stay as an anonymous demand signal.
+        session.execute(
+            ServiceRequest.__table__.update()
+            .where(ServiceRequest.user_id == user.id)
+            .values(user_id=None)
+        )
+
+        # 4. The account itself.
+        session.delete(user)
+        session.commit()
+        return {"message": "Account deleted"}
+    except HTTPException:
+        raise
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 @app.get("/me")
 @limiter.limit("30/minute")
 def get_me(
@@ -638,8 +732,6 @@ def deactivate_repo(
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    from database import Base
-
     session = get_session()
     try:
         repo = (
@@ -648,20 +740,8 @@ def deactivate_repo(
         if not repo:
             raise HTTPException(status_code=404, detail="Repo not found")
 
-        # Real delete: remove every row that points at this repo
-        # (patches, activity, scan results, ...), then the repo itself.
-        # Service requests are demand signals, not repo content: keep the
-        # row but unlink it from the repo. Everything else is deleted.
-        for table in Base.metadata.tables.values():
-            for fk in table.foreign_keys:
-                if fk.target_fullname != "repos.id":
-                    continue
-                if table.name == "service_requests":
-                    session.execute(
-                        table.update().where(fk.parent == repo_id).values(repo_id=None)
-                    )
-                else:
-                    session.execute(table.delete().where(fk.parent == repo_id))
+        # Real delete: every row attached to this repo, then the repo itself.
+        _purge_repo_rows(session, repo_id)
         session.delete(repo)
         session.commit()
         return {"message": f"Repo {repo_id} deleted"}

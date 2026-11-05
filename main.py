@@ -29,7 +29,28 @@ from logger import get_logger
 from scheduler import start_scheduler, stop_scheduler
 
 INVITE_ONLY = True
-INVITE_CODE = "PATCHPILOT2026"
+
+
+def _valid_invite_codes() -> list[str]:
+    """Codes come from the INVITE_CODES env var (comma-separated).
+
+    Unset or empty means nobody can register (closed by default).
+    """
+    raw = os.getenv("INVITE_CODES", "")
+    return [c.strip() for c in raw.split(",") if c.strip()]
+
+
+def _invite_code_ok(code: str | None) -> bool:
+    if not code:
+        return False
+    supplied = code.strip().encode()
+    ok = False
+    # Check every code (no early exit) with a constant-time compare.
+    for valid in _valid_invite_codes():
+        if hmac.compare_digest(supplied, valid.encode()):
+            ok = True
+    return ok
+
 
 logger = get_logger(__name__)
 
@@ -95,10 +116,10 @@ def health(request: Request):
 def register_user(request: Request, body: UserRegisterRequest):
     from users import create_user
 
-    if INVITE_ONLY and body.invite_code != INVITE_CODE:
+    if INVITE_ONLY and not _invite_code_ok(body.invite_code):
         raise HTTPException(
             status_code=403,
-            detail="PatchPilot is currently invite-only. Contact jayam@patchpilot.dev for access.",
+            detail="Invalid or missing invite code. PatchPilot is invite-only during the beta.",
         )
 
     try:

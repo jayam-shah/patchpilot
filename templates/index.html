@@ -464,6 +464,10 @@
             <label>Password</label>
             <input type="password" id="auth-password" placeholder="Password" />
         </div>
+        <div class="auth-field" id="auth-invite-field" style="display:none;">
+            <label>Invite code</label>
+            <input type="text" id="auth-invite" placeholder="Your invite code" autocomplete="off" />
+        </div>
 
         <button class="auth-submit" onclick="submitAuth()">
             Continue →
@@ -570,6 +574,7 @@
 
     function toggleAuth() {
         isLoginMode = !isLoginMode;
+        document.getElementById('auth-invite-field').style.display = isLoginMode ? 'none' : 'block';
         document.getElementById('auth-title').textContent = isLoginMode
             ? 'Sign in to PatchPilot'
             : 'Create your account';
@@ -593,11 +598,18 @@
             return;
         }
 
+        const invite = (document.getElementById('auth-invite').value || '').trim();
+        if (!isLoginMode && !invite) {
+            msg.textContent = 'Please enter your invite code.';
+            msg.className = 'msg error';
+            return;
+        }
+
         const endpoint = isLoginMode ? '/auth/login' : '/auth/register';
         const res = await fetch(`${API}${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, invite_code: 'PATCHPILOT2026' }),
+            body: JSON.stringify({ email, password, invite_code: invite }),
         });
         const data = await res.json();
 

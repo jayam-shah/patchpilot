@@ -378,14 +378,24 @@ def get_activity(
     request: Request,
     current_user: User = Depends(verify_api_key),  # noqa: B008
 ):
+    # Must be logged in.
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     session = get_session()
     try:
-        events = (
-            session.query(ActivityLog)
-            .order_by(ActivityLog.created_at.desc())
-            .limit(30)
-            .all()
-        )
+        query = session.query(ActivityLog)
+
+        # Regular users only see events tied to repos THEY own.
+        # Events with no repo_id (global detection events, billing events)
+        # match nothing here, so they stay hidden. Admins see everything.
+        if not current_user.is_admin:
+            owned_repo_ids = [
+                r.id for r in session.query(Repo.id).filter_by(user_id=current_user.id)
+            ]
+            query = query.filter(ActivityLog.repo_id.in_(owned_repo_ids))
+
+        events = query.order_by(ActivityLog.created_at.desc()).limit(30).all()
         return [
             {
                 "id": e.id,

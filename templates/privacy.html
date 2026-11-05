@@ -39,7 +39,9 @@
     <p>We collect your email address and a hashed password when you create an account. We store the GitHub repository URLs you register. We store the API keys we generate for you. We store logs of pipeline activity (changelog checks, patches generated, PRs opened).</p>
 
     <h2>2. What we do NOT collect</h2>
-    <p>We do not store your source code permanently. We do not sell your data to any third party. We do not track your browsing behavior. We do not use cookies beyond what is necessary to operate the Service.</p>
+    <p><strong>What we store about your code.</strong> When PatchPilot scans a repository, we store the file paths and line numbers where it finds API calls, not the code itself. When PatchPilot generates a fix, we store the contents of the files it changes, before and after the fix, so we can show you the difference on your dashboard and open the pull request. We do not store your whole repository. This data is visible only to your account.</p>
+    <p><strong>Deleting your data.</strong> When you remove a repository, we permanently delete its fixes, activity and scan data. To delete your account and everything attached to it, email us at you@example.com.</p>
+    <p>We do not sell your data to any third party. We do not track your browsing behavior. We do not use cookies beyond what is necessary to operate the Service.</p>
 
     <h2>3. GitHub access</h2>
     <p>When you register a repository, PatchPilot uses your GitHub Personal Access Token to read your code and open pull requests. We use this token only for the purpose of generating patches. We do not share this token with any third party.</p>

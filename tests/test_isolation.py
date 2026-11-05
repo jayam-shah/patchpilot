@@ -179,3 +179,59 @@ def test_admin_sees_everything(world):
 @pytest.mark.parametrize("path", ["/patches", "/activity", "/stats"])
 def test_no_key_is_rejected(path):
     assert client.get(path).status_code == 401
+
+
+def test_delete_repo_removes_data_and_respects_ownership(world):
+    session = get_session()
+    try:
+        owner = session.query(User).filter_by(email=EMAIL_A).first()
+        snapshot_id, _ = _get_or_create_snapshot(session)
+        repo = Repo(
+            user_id=owner.id,
+            github_url="https://github.com/isolation-test/repo-delete",
+            owner="isolation-test",
+            repo_name="repo-delete",
+            api_name="stripe",
+        )
+        session.add(repo)
+        session.commit()
+        repo_id = repo.id
+        session.add(
+            Patch(
+                repo_id=repo_id,
+                snapshot_id=snapshot_id,
+                file_path="isolation_delete.py",
+                original_code="old",
+                patched_code="new",
+            )
+        )
+        session.add(
+            ActivityLog(
+                event_type="no_change",
+                api_name="stripe",
+                repo_id=repo_id,
+                message="isolation-delete-activity",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    # Another user cannot delete it.
+    r = client.delete(f"/repos/{repo_id}", headers={"X-API-Key": world["b"]})
+    assert r.status_code == 404
+
+    # No key is rejected.
+    assert client.delete(f"/repos/{repo_id}").status_code == 401
+
+    # The owner can, and everything attached is gone.
+    r = client.delete(f"/repos/{repo_id}", headers={"X-API-Key": world["a"]})
+    assert r.status_code == 200
+
+    session = get_session()
+    try:
+        assert session.query(Repo).filter_by(id=repo_id).count() == 0
+        assert session.query(Patch).filter_by(repo_id=repo_id).count() == 0
+        assert session.query(ActivityLog).filter_by(repo_id=repo_id).count() == 0
+    finally:
+        session.close()

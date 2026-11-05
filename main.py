@@ -634,17 +634,42 @@ def deactivate_repo(
     request: Request,
     current_user: User = Depends(verify_api_key),  # noqa: B008
 ):
+    # Must be logged in.
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    from database import Base
+
     session = get_session()
     try:
-        query = session.query(Repo).filter_by(id=repo_id)
-        if current_user:
-            query = query.filter_by(user_id=current_user.id)
-        repo = query.first()
+        repo = (
+            session.query(Repo).filter_by(id=repo_id, user_id=current_user.id).first()
+        )
         if not repo:
             raise HTTPException(status_code=404, detail="Repo not found")
-        repo.is_active = False
+
+        # Real delete: remove every row that points at this repo
+        # (patches, activity, scan results, ...), then the repo itself.
+        # Service requests are demand signals, not repo content: keep the
+        # row but unlink it from the repo. Everything else is deleted.
+        for table in Base.metadata.tables.values():
+            for fk in table.foreign_keys:
+                if fk.target_fullname != "repos.id":
+                    continue
+                if table.name == "service_requests":
+                    session.execute(
+                        table.update().where(fk.parent == repo_id).values(repo_id=None)
+                    )
+                else:
+                    session.execute(table.delete().where(fk.parent == repo_id))
+        session.delete(repo)
         session.commit()
-        return {"message": f"Repo {repo_id} deactivated"}
+        return {"message": f"Repo {repo_id} deleted"}
+    except HTTPException:
+        raise
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 

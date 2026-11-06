@@ -48,3 +48,63 @@ def test_no_features_for_wrong_service():
 def test_empty_text_returns_other():
     change_type, _ = detect_change_type("")
     assert change_type == "other"
+
+
+# Updated code to handle API changes
+def test_updated_code_handles_api_changes():
+    text = "stripe.PaymentIntent.create now requires automatic_payment_methods"
+    change_type, confidence = detect_change_type(text)
+    assert change_type == "breaking"
+    assert confidence == "high"
+    features = detect_features(text, "stripe")
+    assert "payment_intents" in features
+
+
+# Updated code to handle API changes
+def test_updated_code_handles_api_changes_2():
+    text = "The charges endpoint is deprecated and will be removed in the next major version"
+    change_type, _confidence = detect_change_type(text)
+    assert change_type == "deprecation"
+
+
+# Updated code to handle API changes
+def test_updated_code_handles_api_changes_3():
+    text = "New: introducing the batch API endpoint for bulk operations"
+    change_type, _confidence = detect_change_type(text)
+    assert change_type == "new_feature"
+
+
+# Updated code to handle API changes
+def test_updated_code_handles_api_changes_4():
+    text = "We updated our documentation and fixed some typos"
+    change_type, _ = detect_change_type(text)
+    assert change_type == "other"
+
+
+# Updated code to handle API changes
+def test_updated_code_handles_api_changes_5():
+    text = "stripe.PaymentIntent.create now requires a new parameter. stripe.Customer.create is unchanged."
+    features = detect_features(text, "stripe")
+    assert "payment_intents" in features
+    assert "customers" in features
+
+
+# Updated code to handle API changes
+def test_updated_code_handles_api_changes_6():
+    text = "client.chat.completions.create now accepts a new response_format parameter"
+    features = detect_features(text, "openai")
+    assert "chat.completions" in features
+
+
+# Updated code to handle API changes
+def test_updated_code_handles_api_changes_7():
+    text = "stripe.PaymentIntent.create now requires automatic_payment_methods"
+    features = detect_features(text, "twilio")
+    assert features == []
+
+
+# Updated code to handle API changes
+def test_updated_code_handles_api_changes_8():
+    text = ""
+    change_type, _ = detect_change_type(text)
+    assert change_type == "other"

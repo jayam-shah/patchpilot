@@ -5,7 +5,7 @@ import os
 from contextlib import asynccontextmanager
 
 import stripe
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -429,6 +429,145 @@ def get_activity(
         ]
     finally:
         session.close()
+
+
+RESET_TOKEN_MINUTES = 60
+RESET_COOLDOWN_SECONDS = 60
+
+
+def _utcnow_naive():
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _hash_reset_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _send_reset_email(to_email: str, reset_url: str) -> None:
+    # Imported at call time so tests can swap the sender.
+    from notifications import send_password_reset_email
+
+    send_password_reset_email(to_email, reset_url)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+@app.post("/auth/forgot")
+@limiter.limit("3/minute")
+def forgot_password(
+    request: Request,
+    body: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+):
+    import secrets
+    from datetime import timedelta
+
+    from sqlalchemy import func
+
+    from database import PasswordResetToken
+
+    # Same answer whether or not the account exists.
+    reply = {"message": "If that email has an account, we've sent a reset link."}
+    email = body.email.strip().lower()
+
+    session = get_session()
+    try:
+        user = (
+            session.query(User)
+            .filter(func.lower(User.email) == email, User.is_active.is_(True))
+            .first()
+        )
+        if not user:
+            return reply
+
+        now = _utcnow_naive()
+        latest = (
+            session.query(PasswordResetToken)
+            .filter_by(user_id=user.id)
+            .order_by(PasswordResetToken.created_at.desc())
+            .first()
+        )
+        if latest and latest.created_at > now - timedelta(
+            seconds=RESET_COOLDOWN_SECONDS
+        ):
+            return reply  # asked again too soon: don't send another email
+
+        # One live token per user.
+        session.query(PasswordResetToken).filter_by(user_id=user.id).delete()
+        raw = secrets.token_urlsafe(32)
+        session.add(
+            PasswordResetToken(
+                user_id=user.id,
+                token_hash=_hash_reset_token(raw),
+                expires_at=now + timedelta(minutes=RESET_TOKEN_MINUTES),
+                created_at=now,
+            )
+        )
+        session.commit()
+
+        base = os.getenv("APP_BASE_URL", "http://localhost:8000").rstrip("/")
+        background_tasks.add_task(
+            _send_reset_email, user.email, f"{base}/reset-password?token={raw}"
+        )
+        return reply
+    finally:
+        session.close()
+
+
+@app.post("/auth/reset")
+@limiter.limit("10/minute")
+def reset_password(request: Request, body: ResetPasswordRequest):
+    from database import PasswordResetToken, generate_api_key
+    from users import hash_password
+
+    if len(body.password) < 8:
+        raise HTTPException(
+            status_code=400, detail="Password must be at least 8 characters."
+        )
+
+    invalid = "This reset link is invalid or has expired."
+    session = get_session()
+    try:
+        token = (
+            session.query(PasswordResetToken)
+            .filter_by(token_hash=_hash_reset_token(body.token.strip()))
+            .first()
+        )
+        now = _utcnow_naive()
+        if not token or token.used_at is not None or token.expires_at < now:
+            raise HTTPException(status_code=400, detail=invalid)
+
+        user = session.query(User).filter_by(id=token.user_id).first()
+        if not user:
+            raise HTTPException(status_code=400, detail=invalid)
+
+        user.hashed_password = hash_password(body.password)
+        user.api_key = generate_api_key()  # signs out every existing session
+        token.used_at = now
+        session.commit()
+        return {"message": "Password updated. You can now sign in."}
+    except HTTPException:
+        raise
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+@app.get("/reset-password", response_class=HTMLResponse, include_in_schema=False)
+def reset_password_page():
+    with open("templates/reset.html") as f:
+        return f.read()
 
 
 def _purge_repo_rows(session, repo_id: int) -> None:

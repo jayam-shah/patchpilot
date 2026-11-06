@@ -1,6 +1,6 @@
 import resend
 
-from config import NOTIFICATION_EMAIL, RESEND_API_KEY
+from config import EMAIL_FROM, NOTIFICATION_EMAIL, RESEND_API_KEY
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -23,7 +23,7 @@ def send_pr_notification(
     try:
         resend.Emails.send(
             {
-                "from": "PatchPilot <onboarding@resend.dev>",
+                "from": EMAIL_FROM,
                 "to": NOTIFICATION_EMAIL,
                 "subject": f"[PatchPilot] Breaking change fixed in {repo_name}",
                 "html": f"""
@@ -118,4 +118,47 @@ def send_pr_notification(
         return True
     except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to send email notification: {e}")
+        return False
+
+
+def send_password_reset_email(to_email: str, reset_url: str) -> bool:
+    if not RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY not set — skipping password reset email")
+        return False
+
+    try:
+        resend.Emails.send(
+            {
+                "from": EMAIL_FROM,
+                "to": to_email,
+                "subject": "Reset your PatchPilot password",
+                "html": f"""
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; max-width:480px; margin:0 auto; padding:24px; color:#1f2328;">
+  <h2 style="margin:0 0 12px;">Reset your password</h2>
+  <p style="font-size:15px; line-height:1.6; color:#57606a;">
+    We got a request to reset the password for your PatchPilot account.
+    This link works once and expires in 1 hour.
+  </p>
+  <p style="margin:24px 0;">
+    <a href="{reset_url}" style="background:#1f6feb; color:#ffffff; padding:10px 20px; border-radius:6px; text-decoration:none; font-weight:600;">Choose a new password</a>
+  </p>
+  <p style="font-size:13px; line-height:1.5; color:#57606a;">
+    If the button doesn't work, paste this link into your browser:<br>{reset_url}
+  </p>
+  <p style="font-size:13px; line-height:1.5; color:#57606a;">
+    If you didn't ask for this, you can ignore this email. Your password won't change.
+  </p>
+</div>
+""",
+                "text": (
+                    "Reset your PatchPilot password\n\n"
+                    f"Open this link to choose a new password (works once, expires in 1 hour):\n{reset_url}\n\n"
+                    "If you didn't ask for this, ignore this email."
+                ),
+            }
+        )
+        logger.info("Password reset email sent")
+        return True
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Failed to send password reset email: {e}")
         return False

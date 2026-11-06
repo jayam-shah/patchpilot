@@ -74,6 +74,7 @@
         .plan-badge.pro { background: #1a0d2d; color: #c084fc; }
         .plan-badge.enterprise { background: #0d2d1a; color: #4ade80; }
 
+        .msg.success { display: block; background: #0d2d1a; color: #4ade80; padding: 10px 14px; border-radius: 6px; font-size: 13px; }
         .logout-btn {
             background: none;
             border: 1px solid #2d3748;
@@ -468,6 +469,9 @@
             <label>Invite code</label>
             <input type="text" id="auth-invite" placeholder="Your invite code" autocomplete="off" />
         </div>
+        <p id="auth-forgot" style="margin:-4px 0 14px; font-size:13px;">
+            <a onclick="forgotPassword()" style="cursor:pointer;">Forgot password?</a>
+        </p>
 
         <button class="auth-submit" onclick="submitAuth()">
             Continue →
@@ -575,6 +579,7 @@
     function toggleAuth() {
         isLoginMode = !isLoginMode;
         document.getElementById('auth-invite-field').style.display = isLoginMode ? 'none' : 'block';
+        document.getElementById('auth-forgot').style.display = isLoginMode ? 'block' : 'none';
         document.getElementById('auth-title').textContent = isLoginMode
             ? 'Sign in to PatchPilot'
             : 'Create your account';
@@ -653,6 +658,29 @@
         loadRepos();
         loadPatches();
         loadActivity();
+    }
+
+    async function forgotPassword() {
+        const email = document.getElementById('auth-email').value.trim();
+        const msg = document.getElementById('auth-msg');
+        msg.className = 'msg';
+        if (!email) {
+            msg.textContent = 'Enter your email above, then click "Forgot password?".';
+            msg.className = 'msg error';
+            return;
+        }
+        const res = await fetch(`${API}/auth/forgot`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        if (res.status === 429) {
+            msg.textContent = 'Too many attempts. Please wait a minute and try again.';
+            msg.className = 'msg error';
+            return;
+        }
+        msg.textContent = "If that email has an account, we've sent a reset link. Check your inbox.";
+        msg.className = 'msg success';
     }
 
     async function deleteAccount() {

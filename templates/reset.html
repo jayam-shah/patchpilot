@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Reset password · PatchPilot</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #0d1117; color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  .card {
+    width: 100%; max-width: 400px; margin: 16px; padding: 28px;
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+  }
+  h1 { margin: 0 0 6px; font-size: 22px; }
+  .sub { margin: 0 0 20px; color: #8b949e; font-size: 14px; line-height: 1.5; }
+  label { display: block; margin-bottom: 14px; font-size: 13px; color: #8b949e; }
+  input {
+    display: block; width: 100%; margin-top: 6px; padding: 10px 12px; font-size: 15px;
+    color: #e6edf3; background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+  }
+  input:focus { outline: none; border-color: #3b82f6; }
+  button {
+    width: 100%; padding: 11px; font-size: 15px; font-weight: 600; cursor: pointer;
+    color: #fff; background: #3b82f6; border: 0; border-radius: 6px;
+  }
+  button:disabled { opacity: .6; cursor: default; }
+  .msg { display: none; margin-top: 14px; padding: 10px 12px; border-radius: 6px; font-size: 14px; }
+  .msg.error { display: block; background: #2d1315; color: #f87171; }
+  .msg.success { display: block; background: #0d2d1a; color: #4ade80; }
+  .foot { margin: 18px 0 0; font-size: 13px; text-align: center; }
+  a { color: #60a5fa; }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>Choose a new password</h1>
+  <p class="sub">Enter a new password for your PatchPilot account. It must be at least 8 characters.</p>
+
+  <form id="form">
+    <label>New password
+      <input type="password" id="pw" minlength="8" autocomplete="new-password" required>
+    </label>
+    <label>Confirm password
+      <input type="password" id="pw2" minlength="8" autocomplete="new-password" required>
+    </label>
+    <button type="submit" id="btn">Update password</button>
+  </form>
+
+  <div class="msg" id="msg" role="status"></div>
+  <p class="foot"><a href="/dashboard">Back to sign in</a></p>
+</main>
+
+<script>
+  const token = new URLSearchParams(window.location.search).get('token') || '';
+  const form = document.getElementById('form');
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('btn');
+
+  function show(text, kind) {
+    msg.textContent = text;
+    msg.className = 'msg ' + kind;
+  }
+
+  if (!token) {
+    show('This link is missing its reset code. Please request a new reset email.', 'error');
+    btn.disabled = true;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pw = document.getElementById('pw').value;
+    const pw2 = document.getElementById('pw2').value;
+    if (pw.length < 8) { show('Password must be at least 8 characters.', 'error'); return; }
+    if (pw !== pw2) { show('The two passwords do not match.', 'error'); return; }
+
+    btn.disabled = true;
+    try {
+      const res = await fetch('/auth/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password: pw }),
+      });
+      let data = {};
+      try { data = await res.json(); } catch (err) {}
+      if (res.ok) {
+        form.style.display = 'none';
+        msg.innerHTML = 'Password updated. <a href="/dashboard">Sign in →</a>';
+        msg.className = 'msg success';
+      } else if (res.status === 429) {
+        show('Too many attempts. Please wait a minute and try again.', 'error');
+        btn.disabled = false;
+      } else {
+        show(typeof data.detail === 'string' ? data.detail : 'Something went wrong. Please try again.', 'error');
+        btn.disabled = false;
+      }
+    } catch (err) {
+      show('Could not reach the server. Please try again.', 'error');
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

@@ -47,6 +47,19 @@ class User(Base):
     repos = relationship("Repo", back_populates="user")
 
 
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash = Column(String, unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)  # naive UTC
+    used_at = Column(DateTime, nullable=True)  # naive UTC
+    created_at = Column(DateTime, nullable=False)  # naive UTC
+
+
 class ActivityLog(Base):
     __tablename__ = "activity_logs"
 

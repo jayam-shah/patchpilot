@@ -42,3 +42,37 @@ def test_feature_mismatch_wrong_service():
     text = "stripe.PaymentIntent.create now requires automatic_payment_methods"
     features = detect_features(text, "openai")
     assert len(features) == 0
+
+
+def test_patch_breaking_change():
+    text = "Breaking change: stripe.PaymentIntent.create now requires automatic_payment_methods"
+    change_type, _ = detect_change_type(text)
+    assert should_patch(change_type) is True
+    patched_text = "stripe.PaymentIntent.create(..., automatic_payment_methods=True)"
+    assert patched_text == text
+
+
+def test_patch_new_feature():
+    text = "New: introducing the batch API endpoint for bulk operations"
+    change_type, _ = detect_change_type(text)
+    assert should_patch(change_type) is False
+    patched_text = text
+    assert patched_text == text
+
+
+def test_patch_feature_match_stripe():
+    text = (
+        "stripe.PaymentIntent.create now requires automatic_payment_methods parameter"
+    )
+    features = detect_features(text, "stripe")
+    assert "payment_intents" in features
+    patched_text = "stripe.PaymentIntent.create(..., automatic_payment_methods=True)"
+    assert patched_text == text
+
+
+def test_patch_feature_mismatch_wrong_service():
+    text = "stripe.PaymentIntent.create now requires automatic_payment_methods"
+    features = detect_features(text, "openai")
+    assert len(features) == 0
+    patched_text = text
+    assert patched_text == text

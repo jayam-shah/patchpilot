@@ -3,7 +3,6 @@ FEATURE_CATALOG = {
         "chat.completions": [
             "client.chat.completions.create",
             "openai.ChatCompletion.create",
-            "chat.completions",
             "/v1/chat/completions",
         ],
         "embeddings": [

@@ -51,60 +51,65 @@ def test_empty_text_returns_other():
 
 
 # Updated code to handle API changes
-def test_updated_code_handles_api_changes():
+def test_updated_stripe_features():
     text = "stripe.PaymentIntent.create now requires automatic_payment_methods"
+    features = detect_features(text, "stripe")
+    assert "payment_intents" in features
+    assert "automatic_payment_methods" in features
+
+
+def test_updated_openai_features():
+    text = "client.chat.completions.create now accepts a new response_format parameter"
+    features = detect_features(text, "openai")
+    assert "chat.completions" in features
+    assert "response_format" in features
+
+
+def test_updated_text_detects_breaking_change():
+    text = "Breaking change: stripe.PaymentIntent.create now requires automatic_payment_methods"
     change_type, confidence = detect_change_type(text)
     assert change_type == "breaking"
     assert confidence == "high"
-    features = detect_features(text, "stripe")
-    assert "payment_intents" in features
 
 
-# Updated code to handle API changes
-def test_updated_code_handles_api_changes_2():
+def test_updated_text_detects_deprecation():
     text = "The charges endpoint is deprecated and will be removed in the next major version"
     change_type, _confidence = detect_change_type(text)
     assert change_type == "deprecation"
 
 
-# Updated code to handle API changes
-def test_updated_code_handles_api_changes_3():
+def test_updated_text_detects_new_feature():
     text = "New: introducing the batch API endpoint for bulk operations"
     change_type, _confidence = detect_change_type(text)
     assert change_type == "new_feature"
 
 
-# Updated code to handle API changes
-def test_updated_code_handles_api_changes_4():
+def test_updated_text_detects_other():
     text = "We updated our documentation and fixed some typos"
     change_type, _ = detect_change_type(text)
     assert change_type == "other"
 
 
-# Updated code to handle API changes
-def test_updated_code_handles_api_changes_5():
+def test_updated_text_detects_stripe_features():
     text = "stripe.PaymentIntent.create now requires a new parameter. stripe.Customer.create is unchanged."
     features = detect_features(text, "stripe")
     assert "payment_intents" in features
     assert "customers" in features
 
 
-# Updated code to handle API changes
-def test_updated_code_handles_api_changes_6():
+def test_updated_text_detects_openai_features():
     text = "client.chat.completions.create now accepts a new response_format parameter"
     features = detect_features(text, "openai")
     assert "chat.completions" in features
+    assert "response_format" in features
 
 
-# Updated code to handle API changes
-def test_updated_code_handles_api_changes_7():
+def test_updated_text_no_features_for_wrong_service():
     text = "stripe.PaymentIntent.create now requires automatic_payment_methods"
     features = detect_features(text, "twilio")
     assert features == []
 
 
-# Updated code to handle API changes
-def test_updated_code_handles_api_changes_8():
-    text = ""
-    change_type, _ = detect_change_type(text)
+def test_updated_text_empty_text_returns_other():
+    change_type, _ = detect_change_type("")
     assert change_type == "other"

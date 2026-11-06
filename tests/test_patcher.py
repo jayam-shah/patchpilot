@@ -6,12 +6,14 @@ def test_strips_opening_fence():
     result = clean_code_output(raw)
     assert not result.startswith("```")
     assert "import stripe" in result
+    assert "stripe.PaymentIntent.create()" in result
 
 
 def test_strips_closing_fence():
     raw = "```\nimport stripe\n```"
     result = clean_code_output(raw)
     assert not result.endswith("```")
+    assert "import stripe" in result
 
 
 def test_no_fences_unchanged():
@@ -25,6 +27,7 @@ def test_strips_trailing_prose():
     result = clean_code_output(raw)
     assert "compatibility" not in result
     assert "stripe.PaymentIntent.create" in result
+    assert "amount=100" in result
 
 
 def test_empty_input():
@@ -35,3 +38,5 @@ def test_empty_input():
 def test_only_fences():
     result = clean_code_output("```\n```")
     assert result == ""
+
+```

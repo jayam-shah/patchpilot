@@ -5,4 +5,4 @@ __pycache__/
 *.db
 logs/
 .pytest_cache/
-.ruff_cache/
+.ruff_cache/*.pem
